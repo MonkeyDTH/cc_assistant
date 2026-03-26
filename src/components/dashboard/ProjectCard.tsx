@@ -1,5 +1,6 @@
 import { FolderOpen, MessageSquare, Clock, FileText } from "lucide-react";
 import type { Project, ActiveSession } from "@/lib/types";
+import { getProjectName, getProjectDir, formatRelativeTime } from "@/lib/utils";
 
 interface Props {
   project: Project;
@@ -9,41 +10,13 @@ interface Props {
   style?: React.CSSProperties;
 }
 
-function formatRelativeTime(isoString: string | null): string {
-  if (!isoString) return "无记录";
-  const diff = Date.now() - new Date(isoString).getTime();
-  const mins  = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
-  const days  = Math.floor(diff / 86400000);
-  if (mins < 1)   return "刚刚";
-  if (mins < 60)  return `${mins} 分钟前`;
-  if (hours < 24) return `${hours} 小时前`;
-  return `${days} 天前`;
-}
-
-function getProjectName(path: string): string {
-  // 取最后一段路径作为项目名
-  return path.replace(/\\/g, "/").split("/").filter(Boolean).pop() ?? path;
-}
-
-function getProjectDir(path: string): string {
-  const parts = path.replace(/\\/g, "/").split("/").filter(Boolean);
-  parts.pop();
-  return parts.join(" / ");
-}
-
 export function ProjectCard({ project, activeSessions, onSelectSessions, onEditPrompt, style }: Props) {
-  const isActive = activeSessions.some((s) =>
-    s.cwd.toLowerCase().replace(/\\/g, "/").includes(
-      project.path.toLowerCase().replace(/\\/g, "/")
-    )
-  );
-
   const activeSession = activeSessions.find((s) =>
     s.cwd.toLowerCase().replace(/\\/g, "/").includes(
       project.path.toLowerCase().replace(/\\/g, "/")
     )
   );
+  const isActive = activeSession != null;
 
   return (
     <div
@@ -57,7 +30,6 @@ export function ProjectCard({ project, activeSessions, onSelectSessions, onEditP
         ...style,
       }}
     >
-      {/* 顶部：项目名 + 活跃状态 */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <div
@@ -87,10 +59,7 @@ export function ProjectCard({ project, activeSessions, onSelectSessions, onEditP
               border: "1px solid rgba(217,113,57,0.25)",
             }}
           >
-            <div
-              className="w-1.5 h-1.5 rounded-full animate-pulse-dot"
-              style={{ background: "var(--accent)" }}
-            />
+            <div className="w-1.5 h-1.5 rounded-full animate-pulse-dot" style={{ background: "var(--accent)" }} />
             <span className="text-xs font-medium" style={{ color: "var(--accent)", fontSize: "11px" }}>
               运行中
             </span>
@@ -98,15 +67,10 @@ export function ProjectCard({ project, activeSessions, onSelectSessions, onEditP
         )}
       </div>
 
-      {/* 活跃进程信息 */}
       {activeSession && (
         <div
           className="rounded-lg px-3 py-2 font-mono text-xs"
-          style={{
-            background: "#0e1117",
-            color: "rgba(217,113,57,0.8)",
-            fontSize: "11px",
-          }}
+          style={{ background: "var(--editor-bg)", color: "rgba(217,113,57,0.8)", fontSize: "11px" }}
         >
           <span style={{ color: "#64748b" }}>PID </span>
           {activeSession.pid}
@@ -115,7 +79,6 @@ export function ProjectCard({ project, activeSessions, onSelectSessions, onEditP
         </div>
       )}
 
-      {/* 统计信息 */}
       <div className="grid grid-cols-2 gap-3">
         <div className="flex items-center gap-2">
           <MessageSquare size={13} style={{ color: "var(--text-tertiary)" }} />
@@ -134,15 +97,11 @@ export function ProjectCard({ project, activeSessions, onSelectSessions, onEditP
         </div>
       </div>
 
-      {/* 操作按钮 */}
       <div className="flex gap-2 pt-1 border-t" style={{ borderColor: "var(--border)" }}>
         <button
           onClick={onSelectSessions}
           className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-colors"
-          style={{
-            background: "var(--surface-2)",
-            color: "var(--text-secondary)",
-          }}
+          style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}
           onMouseEnter={(e) => {
             e.currentTarget.style.background = "var(--accent)";
             e.currentTarget.style.color = "white";
@@ -159,6 +118,7 @@ export function ProjectCard({ project, activeSessions, onSelectSessions, onEditP
         <button
           onClick={onEditPrompt}
           className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-colors"
+          data-has-md={project.has_project_claude_md ? "1" : "0"}
           style={{
             background: project.has_project_claude_md ? "rgba(217,113,57,0.1)" : "var(--surface-2)",
             color: project.has_project_claude_md ? "var(--accent)" : "var(--text-secondary)",
@@ -170,12 +130,10 @@ export function ProjectCard({ project, activeSessions, onSelectSessions, onEditP
             e.currentTarget.style.border = "1px solid transparent";
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = project.has_project_claude_md
-              ? "rgba(217,113,57,0.1)" : "var(--surface-2)";
-            e.currentTarget.style.color = project.has_project_claude_md
-              ? "var(--accent)" : "var(--text-secondary)";
-            e.currentTarget.style.border = project.has_project_claude_md
-              ? "1px solid rgba(217,113,57,0.2)" : "1px solid transparent";
+            const hasMd = e.currentTarget.dataset.hasMd === "1";
+            e.currentTarget.style.background = hasMd ? "rgba(217,113,57,0.1)" : "var(--surface-2)";
+            e.currentTarget.style.color = hasMd ? "var(--accent)" : "var(--text-secondary)";
+            e.currentTarget.style.border = hasMd ? "1px solid rgba(217,113,57,0.2)" : "1px solid transparent";
           }}
         >
           <FileText size={12} />

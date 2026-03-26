@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { MessageSquare, Clock, ChevronRight } from "lucide-react";
 import { useAppStore } from "@/stores/app-store";
 import { api } from "@/lib/tauri-api";
+import { getProjectName } from "@/lib/utils";
+import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
 import type { ConversationMeta } from "@/lib/types";
 
 function formatTime(iso: string | null): string {
@@ -55,10 +57,9 @@ export function SessionsPage() {
             fontFamily: "inherit",
           }}
         >
-          {projects.map((p) => {
-            const name = p.path.replace(/\\/g, "/").split("/").filter(Boolean).pop();
-            return <option key={p.id} value={p.id}>{name}</option>;
-          })}
+          {projects.map((p) => (
+            <option key={p.id} value={p.id}>{getProjectName(p.path)}</option>
+          ))}
         </select>
       </header>
 
@@ -74,11 +75,7 @@ export function SessionsPage() {
 
       <div className="flex-1 overflow-y-auto px-8 py-6">
         {loading ? (
-          <div className="space-y-3">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-20 rounded-xl animate-pulse" style={{ background: "var(--surface-2)" }} />
-            ))}
-          </div>
+          <LoadingSkeleton count={3} height="h-20" />
         ) : sessions.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 gap-2">
             <MessageSquare size={32} style={{ color: "var(--text-tertiary)" }} />

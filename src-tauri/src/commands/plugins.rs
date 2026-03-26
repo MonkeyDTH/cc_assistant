@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::collections::HashMap;
-use super::claude_dir;
+use super::{claude_dir, read_settings_json, write_settings_json};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PluginInstallEntry {
@@ -41,22 +41,17 @@ pub struct PluginInfo {
 /// 读取并合并插件安装信息和启用状态
 #[tauri::command]
 pub fn list_plugins() -> Result<Vec<PluginInfo>, String> {
-    let plugins_dir = claude_dir().join("plugins");
-    let installed_path = plugins_dir.join("installed_plugins.json");
-    let settings_path = claude_dir().join("settings.json");
+    let installed_path = claude_dir().join("plugins").join("installed_plugins.json");
 
-    if !installed_path.exists() {
-        return Ok(vec![]);
-    }
-
-    // 读取 installed_plugins.json
-    let content = fs::read_to_string(&installed_path).map_err(|e| e.to_string())?;
+    let content = match fs::read_to_string(&installed_path) {
+        Ok(c) => c,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(vec![]),
+        Err(e) => return Err(e.to_string()),
+    };
     let installed: InstalledPluginsFile = serde_json::from_str(&content).map_err(|e| e.to_string())?;
 
-    // 读取 settings.json 中的 enabledPlugins
-    let enabled_plugins: HashMap<String, bool> = fs::read_to_string(&settings_path)
+    let enabled_plugins: HashMap<String, bool> = read_settings_json()
         .ok()
-        .and_then(|c| serde_json::from_str::<serde_json::Value>(&c).ok())
         .and_then(|v| v["enabledPlugins"].as_object().cloned())
         .map(|m| m.into_iter().filter_map(|(k, v)| v.as_bool().map(|b| (k, b))).collect())
         .unwrap_or_default();
@@ -116,18 +111,10 @@ pub fn list_plugins() -> Result<Vec<PluginInfo>, String> {
 /// 切换插件启用/禁用状态（写入 settings.json enabledPlugins）
 #[tauri::command]
 pub fn set_plugin_enabled(plugin_id: String, enabled: bool) -> Result<(), String> {
-    let settings_path = claude_dir().join("settings.json");
-
-    let content = fs::read_to_string(&settings_path).unwrap_or_else(|_| "{}".to_string());
-    let mut settings: serde_json::Value =
-        serde_json::from_str(&content).map_err(|e| e.to_string())?;
-
-    // 确保 enabledPlugins 对象存在
+    let mut settings = read_settings_json()?;
     if !settings["enabledPlugins"].is_object() {
         settings["enabledPlugins"] = serde_json::Value::Object(serde_json::Map::new());
     }
     settings["enabledPlugins"][&plugin_id] = serde_json::Value::Bool(enabled);
-
-    let new_content = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
-    fs::write(&settings_path, new_content).map_err(|e| e.to_string())
+    write_settings_json(settings)
 }

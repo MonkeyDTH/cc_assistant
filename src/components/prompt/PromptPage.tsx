@@ -1,15 +1,16 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { markdown } from "@codemirror/lang-markdown";
 import { oneDark } from "@codemirror/theme-one-dark";
-import { Save, Eye, Edit3, Globe, FolderOpen, CheckCircle, AlertCircle } from "lucide-react";
+import { Save, Eye, Edit3, Globe, FolderOpen } from "lucide-react";
 import { api } from "@/lib/tauri-api";
 import { useAppStore } from "@/stores/app-store";
+import { getProjectName } from "@/lib/utils";
+import { SaveStatusBadge } from "@/components/ui/SaveStatusBadge";
 
 type Mode = "global" | "project";
 
 function renderMarkdown(text: string): string {
-  // 简单 Markdown 渲染（无依赖）
   return text
     .replace(/^### (.+)$/gm, "<h3>$1</h3>")
     .replace(/^## (.+)$/gm, "<h2>$1</h2>")
@@ -19,7 +20,6 @@ function renderMarkdown(text: string): string {
     .replace(/`([^`]+)`/g, "<code>$1</code>")
     .replace(/^> (.+)$/gm, "<blockquote>$1</blockquote>")
     .replace(/^- (.+)$/gm, "<li>$1</li>")
-    .replace(/(<li>.*<\/li>)/s, "<ul>$1</ul>")
     .replace(/\n\n/g, "</p><p>")
     .replace(/^(?!<[hupbl])(.+)$/gm, "<p>$1</p>")
     .replace(/<p><\/p>/g, "");
@@ -34,8 +34,11 @@ export function PromptPage() {
   const [saving, setSaving] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saved" | "error">("idle");
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
+  const isDirty = content !== originalContent;
+  const renderedMarkdown = useMemo(() => renderMarkdown(content), [content]);
 
   const loadContent = useCallback(async () => {
     setLoading(true);
@@ -54,18 +57,14 @@ export function PromptPage() {
     }
   }, [mode, selectedProject]);
 
-  useEffect(() => {
-    loadContent();
-  }, [loadContent]);
+  useEffect(() => { loadContent(); }, [loadContent]);
 
-  // 如果进入页面时有选中项目，默认显示项目模式
   useEffect(() => {
-    if (selectedProjectId && selectedProject) {
-      setMode("project");
-    }
+    if (selectedProjectId && selectedProject) setMode("project");
   }, [selectedProjectId, selectedProject]);
 
-  const isDirty = content !== originalContent;
+  // 清理 saveStatus 定时器，避免组件卸载后更新 state
+  useEffect(() => () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); }, []);
 
   async function handleSave() {
     setSaving(true);
@@ -78,7 +77,7 @@ export function PromptPage() {
       }
       setOriginalContent(content);
       setSaveStatus("saved");
-      setTimeout(() => setSaveStatus("idle"), 3000);
+      saveTimerRef.current = setTimeout(() => setSaveStatus("idle"), 3000);
     } catch {
       setSaveStatus("error");
     } finally {
@@ -88,31 +87,18 @@ export function PromptPage() {
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      {/* 顶栏 */}
       <header
         className="px-6 py-4 border-b flex items-center gap-4 flex-shrink-0"
         style={{ borderColor: "var(--border)", background: "var(--surface-card)" }}
       >
-        {/* 模式切换 */}
         <div
           className="flex rounded-lg overflow-hidden border"
           style={{ borderColor: "var(--border)" }}
         >
-          <ModeTab
-            active={mode === "global"}
-            onClick={() => setMode("global")}
-            icon={<Globe size={13} />}
-            label="全局"
-          />
-          <ModeTab
-            active={mode === "project"}
-            onClick={() => setMode("project")}
-            icon={<FolderOpen size={13} />}
-            label="项目"
-          />
+          <ModeTab active={mode === "global"} onClick={() => setMode("global")} icon={<Globe size={13} />} label="全局" />
+          <ModeTab active={mode === "project"} onClick={() => setMode("project")} icon={<FolderOpen size={13} />} label="项目" />
         </div>
 
-        {/* 项目选择（project 模式） */}
         {mode === "project" && (
           <div className="flex-1">
             <ProjectSelector />
@@ -121,7 +107,6 @@ export function PromptPage() {
 
         <div className="flex-1" />
 
-        {/* 预览切换 */}
         <button
           onClick={() => setShowPreview((v) => !v)}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
@@ -135,19 +120,8 @@ export function PromptPage() {
           {showPreview ? "编辑" : "预览"}
         </button>
 
-        {/* 保存状态 */}
-        {saveStatus === "saved" && (
-          <div className="flex items-center gap-1 text-xs" style={{ color: "#22c55e" }}>
-            <CheckCircle size={13} /> 已保存
-          </div>
-        )}
-        {saveStatus === "error" && (
-          <div className="flex items-center gap-1 text-xs" style={{ color: "#ef4444" }}>
-            <AlertCircle size={13} /> 保存失败
-          </div>
-        )}
+        <SaveStatusBadge status={saveStatus} />
 
-        {/* 保存按钮 */}
         <button
           onClick={handleSave}
           disabled={saving || !isDirty || (mode === "project" && !selectedProject)}
@@ -162,25 +136,21 @@ export function PromptPage() {
         </button>
       </header>
 
-      {/* 编辑/预览区 */}
       <div className="flex-1 flex overflow-hidden">
         {loading ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-sm" style={{ color: "var(--text-tertiary)" }}>加载中…</div>
           </div>
         ) : showPreview ? (
-          /* 预览模式 */
           <div className="flex-1 overflow-y-auto px-10 py-8">
             <div
               className="markdown-preview max-w-3xl mx-auto"
-              dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
+              dangerouslySetInnerHTML={{ __html: renderedMarkdown }}
             />
           </div>
         ) : (
-          /* 编辑模式：左右分栏 */
           <div className="flex-1 flex overflow-hidden">
-            {/* 编辑器 */}
-            <div className="flex-1 overflow-hidden" style={{ background: "#1a1f2e" }}>
+            <div className="flex-1 overflow-hidden" style={{ background: "var(--editor-bg)" }}>
               <CodeMirror
                 value={content}
                 height="100%"
@@ -197,14 +167,9 @@ export function PromptPage() {
               />
             </div>
 
-            {/* 分隔线 */}
             <div style={{ width: "1px", background: "var(--border)", flexShrink: 0 }} />
 
-            {/* 实时预览 */}
-            <div
-              className="w-2/5 overflow-y-auto px-8 py-6 flex-shrink-0"
-              style={{ background: "var(--surface)" }}
-            >
+            <div className="w-2/5 overflow-y-auto px-8 py-6 flex-shrink-0" style={{ background: "var(--surface)" }}>
               <div className="flex items-center gap-2 mb-4">
                 <Eye size={13} style={{ color: "var(--text-tertiary)" }} />
                 <span className="text-xs font-mono uppercase tracking-wider"
@@ -212,16 +177,12 @@ export function PromptPage() {
                   实时预览
                 </span>
               </div>
-              <div
-                className="markdown-preview"
-                dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
-              />
+              <div className="markdown-preview" dangerouslySetInnerHTML={{ __html: renderedMarkdown }} />
             </div>
           </div>
         )}
       </div>
 
-      {/* 底部状态栏 */}
       <div
         className="px-6 py-2 border-t flex items-center gap-4"
         style={{ borderColor: "var(--border)", background: "var(--surface-2)" }}
@@ -246,13 +207,8 @@ export function PromptPage() {
   );
 }
 
-function ModeTab({
-  active, onClick, icon, label,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: React.ReactNode;
-  label: string;
+function ModeTab({ active, onClick, icon, label }: {
+  active: boolean; onClick: () => void; icon: React.ReactNode; label: string;
 }) {
   return (
     <button
@@ -271,7 +227,6 @@ function ModeTab({
 
 function ProjectSelector() {
   const { projects, selectedProjectId, setSelectedProject } = useAppStore();
-
   return (
     <select
       value={selectedProjectId ?? ""}
@@ -285,14 +240,11 @@ function ProjectSelector() {
       }}
     >
       <option value="">选择项目…</option>
-      {projects.map((p) => {
-        const name = p.path.replace(/\\/g, "/").split("/").filter(Boolean).pop();
-        return (
-          <option key={p.id} value={p.id}>
-            {name} — {p.path}
-          </option>
-        );
-      })}
+      {projects.map((p) => (
+        <option key={p.id} value={p.id}>
+          {getProjectName(p.path)} — {p.path}
+        </option>
+      ))}
     </select>
   );
 }

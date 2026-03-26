@@ -140,7 +140,7 @@ export function SkillsPage() {
 
             <div
               className="flex-1 overflow-y-auto p-4"
-              style={{ background: "#1a1f2e" }}
+              style={{ background: "var(--editor-body)" }}
             >
               {contentLoading ? (
                 <div className="flex items-center justify-center h-32">
@@ -149,7 +149,7 @@ export function SkillsPage() {
               ) : (
                 <pre
                   className="font-mono text-xs leading-relaxed whitespace-pre-wrap"
-                  style={{ color: "#e2e8f0", fontSize: "12px" }}
+                  style={{ color: "var(--editor-text)", fontSize: "12px" }}
                 >
                   {skillContent || "（空文件）"}
                 </pre>
@@ -159,7 +159,7 @@ export function SkillsPage() {
             {selected.path && (
               <div
                 className="px-4 py-2 border-t font-mono text-xs"
-                style={{ borderColor: "rgba(255,255,255,0.06)", background: "#0e1117", color: "rgba(255,255,255,0.3)", fontSize: "10px" }}
+                style={{ borderColor: "rgba(255,255,255,0.06)", background: "var(--editor-bg)", color: "rgba(255,255,255,0.3)", fontSize: "10px" }}
               >
                 {selected.path.replace(/\\/g, "/")}
               </div>

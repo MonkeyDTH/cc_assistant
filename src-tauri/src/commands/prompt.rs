@@ -5,11 +5,11 @@ use super::claude_dir;
 /// 读取全局 ~/.claude/CLAUDE.md
 #[tauri::command]
 pub fn read_global_claude_md() -> Result<String, String> {
-    let path = claude_dir().join("CLAUDE.md");
-    if !path.exists() {
-        return Ok(String::new());
+    match fs::read_to_string(claude_dir().join("CLAUDE.md")) {
+        Ok(s) => Ok(s),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(String::new()),
+        Err(e) => Err(e.to_string()),
     }
-    fs::read_to_string(&path).map_err(|e| e.to_string())
 }
 
 /// 写入全局 ~/.claude/CLAUDE.md
@@ -22,13 +22,12 @@ pub fn write_global_claude_md(content: String) -> Result<(), String> {
 /// 读取项目级 <project_path>/.claude/CLAUDE.md
 #[tauri::command]
 pub fn read_project_claude_md(project_path: String) -> Result<String, String> {
-    let path = PathBuf::from(&project_path)
-        .join(".claude")
-        .join("CLAUDE.md");
-    if !path.exists() {
-        return Ok(String::new());
+    let path = PathBuf::from(&project_path).join(".claude").join("CLAUDE.md");
+    match fs::read_to_string(&path) {
+        Ok(s) => Ok(s),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(String::new()),
+        Err(e) => Err(e.to_string()),
     }
-    fs::read_to_string(&path).map_err(|e| e.to_string())
 }
 
 /// 写入项目级 CLAUDE.md（自动创建 .claude/ 目录）

@@ -18,9 +18,10 @@ export function SettingsPage() {
     fetchSettings();
   }, [fetchSettings]);
 
+  // 只在首次加载时同步，避免覆盖用户正在编辑的本地状态
   useEffect(() => {
-    if (settings) setLocalSettings(settings);
-  }, [settings]);
+    if (settings && localSettings === null) setLocalSettings(settings);
+  }, [settings, localSettings]);
 
   function handleModelChange(model: string) {
     if (!localSettings) return;
@@ -84,8 +85,8 @@ export function SettingsPage() {
                   readOnly
                   className="w-full font-mono text-sm px-4 py-3 rounded-lg outline-none pr-10"
                   style={{
-                    background: "#1a1f2e",
-                    color: "#e2e8f0",
+                    background: "var(--editor-body)",
+                    color: "var(--editor-text)",
                     border: "1px solid rgba(255,255,255,0.08)",
                   }}
                 />

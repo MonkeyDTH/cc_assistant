@@ -8,15 +8,22 @@ import type {
   HooksConfig,
 } from "./types";
 
-// 运行时检测是否在 Tauri 环境中
 const isTauri = typeof window !== "undefined" && "__TAURI__" in window;
+
+// 模块级缓存，避免每次 invoke 都动态 import
+let _tauriInvoke: (<T>(cmd: string, args?: Record<string, unknown>) => Promise<T>) | null = null;
+async function getTauriInvoke() {
+  if (!_tauriInvoke) {
+    const mod = await import("@tauri-apps/api/core");
+    _tauriInvoke = mod.invoke;
+  }
+  return _tauriInvoke;
+}
 
 async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   if (isTauri) {
-    const { invoke: tauriInvoke } = await import("@tauri-apps/api/core");
-    return tauriInvoke<T>(cmd, args);
+    return (await getTauriInvoke())(cmd, args);
   }
-  // 浏览器开发模式：返回 mock 数据
   return mockInvoke<T>(cmd, args);
 }
 

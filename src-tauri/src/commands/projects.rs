@@ -61,12 +61,12 @@ pub struct ConversationMeta {
 #[tauri::command]
 pub fn list_projects() -> Result<Vec<Project>, String> {
     let projects_dir = claude_dir().join("projects");
-    if !projects_dir.exists() {
-        return Ok(vec![]);
-    }
-
     let mut projects = Vec::new();
-    let entries = fs::read_dir(&projects_dir).map_err(|e| e.to_string())?;
+    let entries = match fs::read_dir(&projects_dir) {
+        Ok(e) => e,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(vec![]),
+        Err(e) => return Err(e.to_string()),
+    };
 
     for entry in entries.flatten() {
         let path = entry.path();

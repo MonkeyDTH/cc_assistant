@@ -1,23 +1,29 @@
-import { useEffect, useState, useCallback } from "react";
-import { GitBranch, Plus, Trash2, ChevronDown, ChevronRight, Save, AlertCircle, CheckCircle } from "lucide-react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { GitBranch, Plus, Trash2, ChevronDown, ChevronRight, Save } from "lucide-react";
 import { api } from "@/lib/tauri-api";
+import { SaveStatusBadge } from "@/components/ui/SaveStatusBadge";
+import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
 import type { HooksConfig, HookMatcher, HookEntry } from "@/lib/types";
 
 const HOOK_EVENTS = ["Notification", "Stop", "PreToolUse", "PostToolUse", "SubagentStop"];
 
-// 为每个 rule 加一个本地 id 方便操作
 interface LocalHookRule extends HookMatcher {
   _id: string;
 }
 
 type LocalHooks = Record<string, LocalHookRule[]>;
 
+let _ruleCounter = 0;
+function nextRuleId(event: string) {
+  return `${event}-${++_ruleCounter}`;
+}
+
 function toLocal(config: HooksConfig): LocalHooks {
   const result: LocalHooks = {};
   for (const event of HOOK_EVENTS) {
-    result[event] = (config[event] ?? []).map((rule, i) => ({
+    result[event] = (config[event] ?? []).map((rule) => ({
       ...rule,
-      _id: `${event}-${i}-${Date.now()}`,
+      _id: nextRuleId(event),
     }));
   }
   return result;
@@ -34,11 +40,15 @@ function toConfig(local: LocalHooks): HooksConfig {
 
 export function HooksPage() {
   const [hooks, setHooks] = useState<LocalHooks>(toLocal({}));
+  const [originalHooks, setOriginalHooks] = useState<LocalHooks>(toLocal({}));
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saved" | "error">("idle");
-  const [isDirty, setIsDirty] = useState(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // isDirty 从数据派生，无需单独维护
+  const isDirty = JSON.stringify(toConfig(hooks)) !== JSON.stringify(toConfig(originalHooks));
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -46,8 +56,7 @@ export function HooksPage() {
       const config = await api.readHooks();
       const local = toLocal(config ?? {});
       setHooks(local);
-      setIsDirty(false);
-      // 自动展开有规则的事件
+      setOriginalHooks(local);
       const exp: Record<string, boolean> = {};
       for (const event of HOOK_EVENTS) {
         if ((local[event]?.length ?? 0) > 0) exp[event] = true;
@@ -60,18 +69,19 @@ export function HooksPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); }, []);
+
   function toggleEvent(event: string) {
     setExpanded((prev) => ({ ...prev, [event]: !prev[event] }));
   }
 
   function addRule(event: string) {
     const newRule: LocalHookRule = {
-      _id: `${event}-new-${Date.now()}`,
+      _id: nextRuleId(event),
       hooks: [{ type: "command", command: "", async: false }],
     };
     setHooks((prev) => ({ ...prev, [event]: [...(prev[event] ?? []), newRule] }));
     setExpanded((prev) => ({ ...prev, [event]: true }));
-    setIsDirty(true);
   }
 
   function removeRule(event: string, id: string) {
@@ -79,7 +89,6 @@ export function HooksPage() {
       ...prev,
       [event]: (prev[event] ?? []).filter((r) => r._id !== id),
     }));
-    setIsDirty(true);
   }
 
   function updateEntry(event: string, ruleId: string, field: keyof HookEntry, value: string | boolean) {
@@ -91,7 +100,6 @@ export function HooksPage() {
           : r
       ),
     }));
-    setIsDirty(true);
   }
 
   function updateMatcher(event: string, ruleId: string, matcher: string) {
@@ -101,17 +109,17 @@ export function HooksPage() {
         r._id === ruleId ? { ...r, matcher: matcher || undefined } : r
       ),
     }));
-    setIsDirty(true);
   }
 
   async function handleSave() {
     setSaving(true);
     setSaveStatus("idle");
     try {
-      await api.writeHooks(toConfig(hooks));
-      setIsDirty(false);
+      const config = toConfig(hooks);
+      await api.writeHooks(config);
+      setOriginalHooks({ ...hooks });
       setSaveStatus("saved");
-      setTimeout(() => setSaveStatus("idle"), 3000);
+      saveTimerRef.current = setTimeout(() => setSaveStatus("idle"), 3000);
     } catch {
       setSaveStatus("error");
     } finally {
@@ -132,16 +140,7 @@ export function HooksPage() {
           </p>
         </div>
 
-        {saveStatus === "saved" && (
-          <div className="flex items-center gap-1 text-xs" style={{ color: "#22c55e" }}>
-            <CheckCircle size={13} /> 已保存
-          </div>
-        )}
-        {saveStatus === "error" && (
-          <div className="flex items-center gap-1 text-xs" style={{ color: "#ef4444" }}>
-            <AlertCircle size={13} /> 保存失败
-          </div>
-        )}
+        <SaveStatusBadge status={saveStatus} />
 
         <button
           onClick={handleSave}
@@ -159,11 +158,7 @@ export function HooksPage() {
 
       <div className="flex-1 overflow-y-auto px-8 py-6 space-y-3">
         {loading ? (
-          <div className="space-y-3">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-14 rounded-xl animate-pulse" style={{ background: "var(--surface-2)" }} />
-            ))}
-          </div>
+          <LoadingSkeleton count={3} height="h-14" />
         ) : (
           HOOK_EVENTS.map((event) => {
             const rules = hooks[event] ?? [];
@@ -179,7 +174,6 @@ export function HooksPage() {
                   background: "var(--surface-card)",
                 }}
               >
-                {/* 事件头 */}
                 <button
                   className="w-full px-5 py-4 flex items-center gap-3 text-left"
                   onClick={() => toggleEvent(event)}
@@ -203,7 +197,6 @@ export function HooksPage() {
                   }
                 </button>
 
-                {/* 规则列表 */}
                 {isOpen && (
                   <div className="border-t px-5 py-4 space-y-3" style={{ borderColor: "var(--border)" }}>
                     {rules.length === 0 && (
@@ -218,7 +211,6 @@ export function HooksPage() {
                         className="rounded-lg p-4 space-y-3"
                         style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}
                       >
-                        {/* matcher（可选） */}
                         <div>
                           <label className="block text-xs mb-1.5" style={{ color: "var(--text-tertiary)" }}>
                             匹配规则（matcher，可选）
@@ -238,7 +230,6 @@ export function HooksPage() {
                           />
                         </div>
 
-                        {/* command */}
                         <div>
                           <div className="flex items-center justify-between mb-1.5">
                             <label className="text-xs" style={{ color: "var(--text-tertiary)" }}>
@@ -254,8 +245,8 @@ export function HooksPage() {
                             rows={2}
                             className="w-full font-mono text-xs rounded-lg px-3 py-2 outline-none resize-none"
                             style={{
-                              background: "#0e1117",
-                              color: "#e2e8f0",
+                              background: "var(--editor-bg)",
+                              color: "var(--editor-text)",
                               border: "1px solid rgba(255,255,255,0.08)",
                               fontSize: "12px",
                               lineHeight: "1.6",
@@ -264,7 +255,6 @@ export function HooksPage() {
                           />
                         </div>
 
-                        {/* async toggle */}
                         <label className="flex items-center gap-2 cursor-pointer select-none">
                           <input
                             type="checkbox"

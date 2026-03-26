@@ -93,7 +93,7 @@ export function Dashboard() {
       {/* 项目卡片区 */}
       <div className="flex-1 overflow-y-auto px-8 py-6">
         {projectsLoading ? (
-          <LoadingSkeleton />
+          <ProjectGridSkeleton />
         ) : projects.length === 0 ? (
           <EmptyState />
         ) : (
@@ -137,7 +137,7 @@ function Stat({
   );
 }
 
-function LoadingSkeleton() {
+function ProjectGridSkeleton() {
   return (
     <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))" }}>
       {[1, 2, 3].map((i) => (
