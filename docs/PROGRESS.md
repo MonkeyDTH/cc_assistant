@@ -1,7 +1,7 @@
 # CC Assistant 开发进度
 
 **最后更新**：2026-03-26
-**当前状态**：Phase 1 + Phase 2 + Phase 3 已完成
+**当前状态**：全部功能已完成，无待开发项
 
 ---
 
@@ -51,21 +51,26 @@
 - [x] **Prompt 页标签切换**：顶部新增 CLAUDE.md / Memory 两个标签，统一 Prompt 相关管理入口
 - [x] Rust 新增命令：`list_memories`, `read_memory`, `write_memory`, `delete_memory`, `search_history`, `read_project_settings`, `write_project_settings`
 
+### Phase 4 — 性能与完善 ✅
+
+- [x] **代码分块**：Vite `manualChunks` 分离 react/codemirror/lucide/zustand；`React.lazy + Suspense` 懒加载所有页面，入口从 810KB → **16KB**
+- [x] **插件市场浏览**：`marketplace.rs` 扫描本地 marketplace 缓存目录；`PluginsPage` 新增「市场」标签，支持关键词搜索、安装状态过滤
+- [x] **会话 JSONL 流式读取**：`list_sessions` 改用 `BufReader`，收集到元信息后设 `meta_done` 标志，避免大文件全量加载
+- [x] **自动刷新**：`MainLayout` 监听 `visibilitychange` 事件（窗口激活时刷新）+ 30s 定时轮询活跃会话
+- [x] **类型修复**：`AppState` interface 补充 `isProjectActive` 函数签名
+- [x] Rust 新增命令：`list_marketplaces`, `list_marketplace_plugins`
+
 ---
 
 ## 待开发
 
-### 剩余功能
+> 当前无待开发功能项。
 
-- [ ] **插件市场浏览**：读 `known_marketplaces.json`，展示可用插件（联网或本地缓存）
+### 可选优化方向
 
-### 其他待完善
-
-- [ ] 生产图标替换（当前为占位 PNG，需正式设计）
-- [ ] 代码分块（当前 index.js 约 800KB，需 dynamic import 拆分）
-- [ ] 会话 JSONL 大文件分页读取（避免内存问题，当前全文加载）
-- [ ] 文件监听（fs watch）：配置文件被外部修改时自动刷新 UI
-- [ ] `app-store.ts` 中 `isProjectActive` 补充 TypeScript 类型签名
+- 生产图标替换（当前为占位 PNG，需正式设计）
+- 插件一键安装（目前市场页仅展示，安装需通过 Claude Code CLI）
+- Tauri fs watch 深度集成（当前用轮询，可改为原生文件事件）
 
 ---
 
@@ -73,65 +78,66 @@
 
 ```
 cc_assistant/
-├── src/                         # React 前端
-│   ├── main.tsx                 # 入口
-│   ├── App.tsx                  # 根组件
+├── src/
+│   ├── main.tsx
+│   ├── App.tsx
 │   ├── index.css                # 全局样式 + CSS 变量主题
 │   ├── lib/
-│   │   ├── types.ts             # TypeScript 类型定义（含 ConversationRecord、MemoryEntry、HistoryEntry）
+│   │   ├── types.ts             # 完整类型定义
 │   │   ├── tauri-api.ts         # Tauri invoke 封装 + 浏览器 mock
-│   │   └── utils.ts             # 共享工具函数（路径处理、时间格式化）
+│   │   └── utils.ts             # 共享工具函数
 │   ├── stores/
 │   │   └── app-store.ts         # Zustand 全局状态
 │   └── components/
 │       ├── layout/
 │       │   ├── Sidebar.tsx      # 左侧导航栏
-│       │   └── MainLayout.tsx   # 主布局 + 页面路由
+│       │   └── MainLayout.tsx   # 主布局 + 懒加载路由 + 自动刷新
 │       ├── ui/
-│       │   ├── LoadingSkeleton.tsx  # 骨架屏组件
-│       │   └── SaveStatusBadge.tsx  # 保存状态徽章
+│       │   ├── LoadingSkeleton.tsx
+│       │   └── SaveStatusBadge.tsx
 │       ├── dashboard/
-│       │   ├── Dashboard.tsx    # 仪表盘页面
-│       │   └── ProjectCard.tsx  # 项目卡片
+│       │   ├── Dashboard.tsx
+│       │   └── ProjectCard.tsx
 │       ├── prompt/
-│       │   └── PromptPage.tsx   # CLAUDE.md 编辑器（含 Memory 标签切换）
+│       │   └── PromptPage.tsx   # CLAUDE.md 编辑器（含 Memory 标签）
 │       ├── memory/
 │       │   └── MemoryPage.tsx   # Memory 管理（列表 + 编辑器）
 │       ├── skills/
-│       │   └── SkillsPage.tsx   # Skill 列表 + 全文查看
+│       │   └── SkillsPage.tsx
 │       ├── plugins/
-│       │   └── PluginsPage.tsx  # 插件管理 + 启用/禁用
+│       │   └── PluginsPage.tsx  # 已安装 + 市场浏览双标签
 │       ├── hooks/
-│       │   └── HooksPage.tsx    # Hook 可视化编辑器
+│       │   └── HooksPage.tsx
 │       ├── sessions/
 │       │   ├── SessionsPage.tsx        # 会话列表 + 历史搜索
-│       │   └── ConversationDetail.tsx  # 会话详情（消息时间线）
+│       │   └── ConversationDetail.tsx  # 消息时间线
 │       └── settings/
-│           └── SettingsPage.tsx # 全局设置 + 项目级 Settings
-├── src-tauri/                   # Rust 后端
+│           └── SettingsPage.tsx # 全局 + 项目级双标签
+├── src-tauri/
 │   ├── src/
 │   │   ├── main.rs
-│   │   ├── lib.rs               # Tauri 注册所有命令
+│   │   ├── lib.rs
 │   │   └── commands/
-│   │       ├── mod.rs               # claude_dir()、read/write_settings_json() 等共享工具
-│   │       ├── projects.rs          # 项目扫描 + 会话读取
+│   │       ├── mod.rs               # 共享工具：claude_dir, read/write_settings_json
+│   │       ├── projects.rs          # 项目扫描 + 会话读取（BufReader）
 │   │       ├── settings.rs          # 全局 settings.json 读写
 │   │       ├── prompt.rs            # CLAUDE.md 读写
 │   │       ├── skills.rs            # skills 扫描 + 读取
 │   │       ├── plugins.rs           # 插件列表 + 启用状态
 │   │       ├── hooks.rs             # hooks 读写
-│   │       ├── memory.rs            # Memory 文件管理 + MEMORY.md 索引同步
+│   │       ├── memory.rs            # Memory 文件管理
 │   │       ├── history.rs           # history.jsonl 流式搜索
-│   │       └── project_settings.rs  # 项目级 settings.json 读写
+│   │       ├── project_settings.rs  # 项目级 settings.json
+│   │       └── marketplace.rs       # 插件市场：marketplace 缓存扫描
 │   ├── icons/
 │   ├── Cargo.toml
 │   ├── build.rs
 │   └── tauri.conf.json
 ├── docs/
 │   ├── 20260326_CC_Assistant_设计文档.md
-│   └── PROGRESS.md              # 本文件
+│   └── PROGRESS.md
 ├── package.json
-├── vite.config.ts
+├── vite.config.ts               # manualChunks 分块配置
 ├── tailwind.config.ts
 ├── tsconfig.json
 └── postcss.config.js
@@ -146,6 +152,8 @@ cc_assistant/
 | `18f58c1` | feat: init — Phase 1 + Phase 2 初始实现 |
 | `be2842f` | refactor: simplify — 消除重复逻辑，修复效率和质量问题 |
 | `94fa255` | feat: Phase 3 — 会话详情、Memory 管理、历史搜索、项目级 Settings |
+| `5e9091b` | docs: 更新 PROGRESS.md |
+| `054dad6` | feat: Phase 4 — 代码分块、插件市场、文件监听、JSONL分页、类型修复 |
 
 ---
 
