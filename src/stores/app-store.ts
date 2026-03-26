@@ -22,6 +22,9 @@ interface AppState {
   settingsLoading: boolean;
   fetchSettings: () => Promise<void>;
   updateSettings: (settings: Settings) => Promise<void>;
+
+  // 派生选择器（不存入 store state，仅作运行时函数）
+  isProjectActive: (projectId: string) => boolean;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({

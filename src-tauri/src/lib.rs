@@ -1,6 +1,6 @@
 mod commands;
 
-use commands::{projects, settings, prompt, skills, plugins, hooks, memory, history, project_settings};
+use commands::{projects, settings, prompt, skills, plugins, hooks, memory, history, project_settings, marketplace};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -41,6 +41,9 @@ pub fn run() {
             // 项目级 Settings
             project_settings::read_project_settings,
             project_settings::write_project_settings,
+            // 插件市场
+            marketplace::list_marketplaces,
+            marketplace::list_marketplace_plugins,
         ])
         .run(tauri::generate_context!())
         .expect("运行 Tauri 应用时出错");

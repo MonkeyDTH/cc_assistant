@@ -7,6 +7,7 @@ pub mod hooks;
 pub mod memory;
 pub mod history;
 pub mod project_settings;
+pub mod marketplace;
 
 use std::path::PathBuf;
 use std::fs;

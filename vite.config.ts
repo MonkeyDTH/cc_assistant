@@ -2,7 +2,6 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 
-// https://vitejs.dev/config/
 export default defineConfig(async () => ({
   plugins: [react()],
   resolve: {
@@ -10,14 +9,32 @@ export default defineConfig(async () => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  // Tauri 在开发时使用固定端口
   clearScreen: false,
   server: {
     port: 1420,
     strictPort: true,
     watch: {
-      // Tauri 需要监听这些文件
       ignored: ["**/src-tauri/**"],
+    },
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // React 运行时
+          "vendor-react": ["react", "react-dom"],
+          // CodeMirror（最大的单个依赖）
+          "vendor-codemirror": [
+            "@codemirror/lang-markdown",
+            "@codemirror/theme-one-dark",
+            "@uiw/react-codemirror",
+          ],
+          // Lucide 图标库
+          "vendor-lucide": ["lucide-react"],
+          // Zustand 状态管理
+          "vendor-zustand": ["zustand"],
+        },
+      },
     },
   },
 }));

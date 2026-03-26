@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use super::claude_dir;
 
@@ -172,47 +173,50 @@ pub fn list_sessions(project_id: String) -> Result<Vec<ConversationMeta>, String
             .map(|s| s.to_string_lossy().to_string())
             .unwrap_or_default();
 
-        // 快速扫描前几行提取元信息
-        let content = fs::read_to_string(&path).unwrap_or_default();
+        // 流式读取，提取元信息后早退（message_count 需要计所有行）
+        let file = match fs::File::open(&path) {
+            Ok(f) => f,
+            Err(_) => continue,
+        };
         let mut first_message: Option<String> = None;
         let mut message_count = 0usize;
         let mut started_at: Option<String> = None;
         let mut model: Option<String> = None;
+        // 是否已收集到所有需要的元信息（不含 message_count，因需遍历全文）
+        let mut meta_done = false;
 
-        for line in content.lines() {
+        for line in BufReader::new(file).lines().flatten() {
             if line.trim().is_empty() {
                 continue;
             }
-            if let Ok(record) = serde_json::from_str::<serde_json::Value>(line) {
+            if let Ok(record) = serde_json::from_str::<serde_json::Value>(&line) {
                 message_count += 1;
 
-                // 获取第一条时间
-                if started_at.is_none() {
-                    started_at = record["timestamp"].as_str().map(|s| s.to_string());
-                }
-
-                // 找第一条用户消息
-                if first_message.is_none() && record["type"] == "user" {
-                    let content_val = &record["message"]["content"];
-                    if let Some(text) = content_val.as_str() {
-                        let preview = text.chars().take(80).collect::<String>();
-                        first_message = Some(preview);
-                    } else if let Some(arr) = content_val.as_array() {
-                        for block in arr {
-                            if block["type"] == "text" {
-                                if let Some(text) = block["text"].as_str() {
-                                    let preview = text.chars().take(80).collect::<String>();
-                                    first_message = Some(preview);
-                                    break;
+                if !meta_done {
+                    if started_at.is_none() {
+                        started_at = record["timestamp"].as_str().map(|s| s.to_string());
+                    }
+                    if first_message.is_none() && record["type"] == "user" {
+                        let content_val = &record["message"]["content"];
+                        if let Some(text) = content_val.as_str() {
+                            first_message = Some(text.chars().take(80).collect());
+                        } else if let Some(arr) = content_val.as_array() {
+                            for block in arr {
+                                if block["type"] == "text" {
+                                    if let Some(text) = block["text"].as_str() {
+                                        first_message = Some(text.chars().take(80).collect());
+                                        break;
+                                    }
                                 }
                             }
                         }
                     }
-                }
-
-                // 找模型信息
-                if model.is_none() && record["type"] == "assistant" {
-                    model = record["message"]["model"].as_str().map(|s| s.to_string());
+                    if model.is_none() && record["type"] == "assistant" {
+                        model = record["message"]["model"].as_str().map(|s| s.to_string());
+                    }
+                    if started_at.is_some() && first_message.is_some() && model.is_some() {
+                        meta_done = true;
+                    }
                 }
             }
         }

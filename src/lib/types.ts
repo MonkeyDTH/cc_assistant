@@ -128,6 +128,27 @@ export type ContentBlock =
   | { type: "tool_use"; id: string; name: string; input: Record<string, unknown> }
   | { type: "tool_result"; tool_use_id: string; content: string | ContentBlock[] };
 
+// ——— 插件市场 ———
+
+export interface Marketplace {
+  id: string;
+  source: { source: string; repo: string | null };
+  install_location: string;
+  last_updated: string | null;
+}
+
+export interface MarketplacePlugin {
+  id: string;
+  name: string;
+  marketplace_id: string;
+  version: string | null;
+  description: string | null;
+  homepage: string | null;
+  keywords: string[];
+  installed: boolean;
+  installed_version: string | null;
+}
+
 // ——— UI 状态 ———
 
 export type NavItem =

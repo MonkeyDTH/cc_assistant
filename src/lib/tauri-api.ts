@@ -9,6 +9,8 @@ import type {
   HooksConfig,
   MemoryEntry,
   HistoryEntry,
+  Marketplace,
+  MarketplacePlugin,
 } from "./types";
 
 const isTauri = typeof window !== "undefined" && "__TAURI__" in window;
@@ -134,6 +136,17 @@ function mockInvoke<T>(cmd: string, _args?: Record<string, unknown>): T {
 
     read_project_settings: {} as Settings,
 
+    list_marketplaces: [
+      { id: "claude-plugins-official", source: { source: "github", repo: "anthropics/claude-plugins-official" }, install_location: "", last_updated: new Date().toISOString() },
+    ] as Marketplace[],
+
+    list_marketplace_plugins: [
+      { id: "superpowers@claude-plugins-official", name: "superpowers", marketplace_id: "claude-plugins-official", version: "5.0.5", description: "超能力技能集合", homepage: null, keywords: ["skills", "tdd"], installed: true, installed_version: "5.0.5" },
+      { id: "claude-md-management@claude-plugins-official", name: "claude-md-management", marketplace_id: "claude-plugins-official", version: "1.2.0", description: "CLAUDE.md 管理工具", homepage: null, keywords: ["prompt", "claude-md"], installed: false, installed_version: null },
+      { id: "code-review@claude-plugins-official", name: "code-review", marketplace_id: "claude-plugins-official", version: "0.3.0", description: "代码审查工具", homepage: null, keywords: ["review", "code"], installed: false, installed_version: null },
+      { id: "commit-commands@claude-plugins-official", name: "commit-commands", marketplace_id: "claude-plugins-official", version: "1.0.0", description: "Git commit 命令集", homepage: null, keywords: ["git", "commit"], installed: false, installed_version: null },
+    ] as MarketplacePlugin[],
+
     list_skills: [
       { name: "commit",          description: "生成 git commit message 并提交代码",  path: "", is_symlink: false },
       { name: "doc-first",       description: "先写设计文档再动代码的工作流",           path: "", is_symlink: false },
@@ -190,6 +203,10 @@ export const api = {
     invoke<Settings>("read_project_settings", { project_path: projectPath }),
   writeProjectSettings: (projectPath: string, settings: Settings) =>
     invoke<void>("write_project_settings", { project_path: projectPath, settings }),
+
+  // 插件市场
+  listMarketplaces: () => invoke<Marketplace[]>("list_marketplaces"),
+  listMarketplacePlugins: () => invoke<MarketplacePlugin[]>("list_marketplace_plugins"),
 
   // Settings
   readSettings: () => invoke<Settings>("read_settings"),
