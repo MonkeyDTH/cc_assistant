@@ -80,6 +80,54 @@ export interface PluginInfo {
   install_path: string;
 }
 
+// ——— Memory ———
+
+export interface MemoryEntry {
+  file_name: string;
+  path: string;
+  name: string;
+  description: string;
+  memory_type: string;  // user / feedback / project / reference
+  content: string;
+}
+
+// ——— 历史记录 ———
+
+export interface HistoryEntry {
+  display: string;
+  timestamp: number;
+  project: string | null;
+  session_id: string | null;
+}
+
+// ——— 会话消息（JSONL 记录） ———
+
+export interface ConversationRecord {
+  uuid: string;
+  parentUuid: string | null;
+  type: "user" | "assistant" | "progress" | "file-history-snapshot";
+  timestamp: string;
+  sessionId: string;
+  isSidechain?: boolean;
+  message?: {
+    role?: string;
+    content?: string | ContentBlock[];
+    model?: string;
+    stop_reason?: string;
+    usage?: { input_tokens: number; output_tokens: number };
+  };
+  // progress 字段
+  toolUseID?: string;
+  hookEvent?: string;
+  data?: { type: string; [key: string]: unknown };
+}
+
+export type ContentBlock =
+  | { type: "text"; text: string }
+  | { type: "thinking"; thinking: string; signature?: string }
+  | { type: "tool_use"; id: string; name: string; input: Record<string, unknown> }
+  | { type: "tool_result"; tool_use_id: string; content: string | ContentBlock[] };
+
 // ——— UI 状态 ———
 
 export type NavItem =

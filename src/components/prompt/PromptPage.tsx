@@ -2,12 +2,14 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { markdown } from "@codemirror/lang-markdown";
 import { oneDark } from "@codemirror/theme-one-dark";
-import { Save, Eye, Edit3, Globe, FolderOpen } from "lucide-react";
+import { Save, Eye, Edit3, Globe, FolderOpen, Brain } from "lucide-react";
 import { api } from "@/lib/tauri-api";
 import { useAppStore } from "@/stores/app-store";
 import { getProjectName } from "@/lib/utils";
 import { SaveStatusBadge } from "@/components/ui/SaveStatusBadge";
+import { MemoryPage } from "@/components/memory/MemoryPage";
 
+type TopTab = "prompt" | "memory";
 type Mode = "global" | "project";
 
 function renderMarkdown(text: string): string {
@@ -26,6 +28,46 @@ function renderMarkdown(text: string): string {
 }
 
 export function PromptPage() {
+  const [topTab, setTopTab] = useState<TopTab>("prompt");
+
+  if (topTab !== "prompt") {
+    return (
+      <div className="h-full flex flex-col overflow-hidden">
+        <div
+          className="px-6 py-3 border-b flex items-center gap-2 flex-shrink-0"
+          style={{ borderColor: "var(--border)", background: "var(--surface-card)" }}
+        >
+          <TopTabBtn active={false} icon={<FolderOpen size={13} />} label="CLAUDE.md" onClick={() => setTopTab("prompt")} />
+          <TopTabBtn active={true} icon={<Brain size={13} />} label="Memory" onClick={() => setTopTab("memory")} />
+        </div>
+        <div className="flex-1 overflow-hidden">
+          <MemoryPage />
+        </div>
+      </div>
+    );
+  }
+
+  return <PromptEditor onTabChange={setTopTab} topTab={topTab} />;
+}
+
+function TopTabBtn({ active, icon, label, onClick }: {
+  active: boolean; icon: React.ReactNode; label: string; onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+      style={{
+        background: active ? "var(--accent)" : "transparent",
+        color: active ? "white" : "var(--text-secondary)",
+      }}
+    >
+      {icon} {label}
+    </button>
+  );
+}
+
+function PromptEditor({ onTabChange, topTab }: { onTabChange: (t: TopTab) => void; topTab: TopTab }) {
   const { selectedProjectId, projects } = useAppStore();
   const [mode, setMode] = useState<Mode>("global");
   const [content, setContent] = useState("");
@@ -88,9 +130,16 @@ export function PromptPage() {
   return (
     <div className="h-full flex flex-col overflow-hidden">
       <header
-        className="px-6 py-4 border-b flex items-center gap-4 flex-shrink-0"
+        className="px-6 py-3 border-b flex items-center gap-3 flex-shrink-0"
         style={{ borderColor: "var(--border)", background: "var(--surface-card)" }}
       >
+        {/* 顶级标签：CLAUDE.md / Memory */}
+        <TopTabBtn active={topTab === "prompt"} icon={<FolderOpen size={13} />} label="CLAUDE.md" onClick={() => onTabChange("prompt")} />
+        <TopTabBtn active={topTab === "memory"} icon={<Brain size={13} />} label="Memory" onClick={() => onTabChange("memory")} />
+
+        <div style={{ width: "1px", height: "20px", background: "var(--border)", flexShrink: 0 }} />
+
+        {/* 全局/项目切换 */}
         <div
           className="flex rounded-lg overflow-hidden border"
           style={{ borderColor: "var(--border)" }}

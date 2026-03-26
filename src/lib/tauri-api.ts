@@ -2,10 +2,13 @@ import type {
   Project,
   ActiveSession,
   ConversationMeta,
+  ConversationRecord,
   Settings,
   Skill,
   PluginInfo,
   HooksConfig,
+  MemoryEntry,
+  HistoryEntry,
 } from "./types";
 
 const isTauri = typeof window !== "undefined" && "__TAURI__" in window;
@@ -100,7 +103,36 @@ function mockInvoke<T>(cmd: string, _args?: Record<string, unknown>): T {
       },
     } as Settings,
 
-    read_conversation: [],
+    read_conversation: [
+      { uuid: "1", parentUuid: null, type: "user", timestamp: new Date().toISOString(), sessionId: "mock",
+        message: { role: "user", content: "帮我设计一个 Claude Code 管理面板应用" } },
+      { uuid: "2", parentUuid: "1", type: "assistant", timestamp: new Date().toISOString(), sessionId: "mock",
+        message: { role: "assistant", model: "claude-sonnet-4-6",
+          content: [{ type: "thinking", thinking: "用户想要一个管理面板..." },
+                    { type: "text", text: "好的，我来帮你设计这个应用。\n\n首先，我们需要确定核心功能..." }] } },
+      { uuid: "3", parentUuid: "2", type: "user", timestamp: new Date().toISOString(), sessionId: "mock",
+        message: { role: "user", content: "需要支持 Prompt 管理和 Hook 配置" } },
+      { uuid: "4", parentUuid: "3", type: "assistant", timestamp: new Date().toISOString(), sessionId: "mock",
+        message: { role: "assistant", model: "claude-sonnet-4-6",
+          content: [{ type: "text", text: "明白，我将在设计中包含这两个核心功能。" }] } },
+    ] as ConversationRecord[],
+
+    list_memories: [
+      { file_name: "user_role.md", path: "", name: "用户角色", description: "用户是全栈开发者，主要使用 TypeScript 和 Rust",
+        memory_type: "user", content: "---\nname: 用户角色\ndescription: 用户是全栈开发者\ntype: user\n---\n\n用户是全栈开发者，主要使用 TypeScript 和 Rust。" },
+      { file_name: "feedback_testing.md", path: "", name: "测试反馈", description: "集成测试必须访问真实数据库",
+        memory_type: "feedback", content: "---\nname: 测试反馈\ndescription: 集成测试必须访问真实数据库\ntype: feedback\n---\n\n集成测试必须访问真实数据库，不要使用 mock。" },
+    ] as MemoryEntry[],
+
+    read_memory: "---\nname: 示例\ndescription: 示例描述\ntype: user\n---\n\n示例 Memory 内容。",
+
+    search_history: [
+      { display: "帮我设计一个 Claude Code 管理面板应用", timestamp: Date.now() - 1000, project: "D:\\Projects\\Personal\\cc_assistant", session_id: null },
+      { display: "初始化 Tauri + React 项目骨架", timestamp: Date.now() - 7200000, project: "D:\\Projects\\Personal\\cc_assistant", session_id: null },
+      { display: "实现仪表盘组件", timestamp: Date.now() - 10800000, project: "D:\\Projects\\Personal\\cc_assistant", session_id: null },
+    ] as HistoryEntry[],
+
+    read_project_settings: {} as Settings,
 
     list_skills: [
       { name: "commit",          description: "生成 git commit message 并提交代码",  path: "", is_symlink: false },
@@ -139,7 +171,25 @@ export const api = {
   listSessions: (projectId: string) =>
     invoke<ConversationMeta[]>("list_sessions", { project_id: projectId }),
   readConversation: (projectId: string, sessionId: string) =>
-    invoke<unknown[]>("read_conversation", { project_id: projectId, session_id: sessionId }),
+    invoke<ConversationRecord[]>("read_conversation", { project_id: projectId, session_id: sessionId }),
+
+  // Memory
+  listMemories: () => invoke<MemoryEntry[]>("list_memories"),
+  readMemory: (path: string) => invoke<string>("read_memory", { path }),
+  writeMemory: (fileName: string, content: string) =>
+    invoke<void>("write_memory", { file_name: fileName, content }),
+  deleteMemory: (fileName: string) =>
+    invoke<void>("delete_memory", { file_name: fileName }),
+
+  // 历史搜索
+  searchHistory: (query: string, projectFilter: string, limit: number) =>
+    invoke<HistoryEntry[]>("search_history", { query, project_filter: projectFilter, limit }),
+
+  // 项目级 Settings
+  readProjectSettings: (projectPath: string) =>
+    invoke<Settings>("read_project_settings", { project_path: projectPath }),
+  writeProjectSettings: (projectPath: string, settings: Settings) =>
+    invoke<void>("write_project_settings", { project_path: projectPath, settings }),
 
   // Settings
   readSettings: () => invoke<Settings>("read_settings"),

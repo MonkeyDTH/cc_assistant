@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
-import { Settings as SettingsIcon, Eye, EyeOff, Shield, Cpu } from "lucide-react";
+import { Settings as SettingsIcon, Eye, EyeOff, Shield, Cpu, FolderOpen, Save } from "lucide-react";
 import { useAppStore } from "@/stores/app-store";
+import { api } from "@/lib/tauri-api";
+import { getProjectName } from "@/lib/utils";
+import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
+import { SaveStatusBadge } from "@/components/ui/SaveStatusBadge";
 import type { Settings } from "@/lib/types";
 
 const MODELS = [
@@ -9,59 +13,79 @@ const MODELS = [
   { id: "haiku",      label: "Claude Haiku 4.5" },
 ];
 
+type Tab = "global" | "project";
+
 export function SettingsPage() {
-  const { settings, fetchSettings, updateSettings, settingsLoading } = useAppStore();
-  const [showApiKey, setShowApiKey] = useState(false);
-  const [localSettings, setLocalSettings] = useState<Settings | null>(null);
-
-  useEffect(() => {
-    fetchSettings();
-  }, [fetchSettings]);
-
-  // 只在首次加载时同步，避免覆盖用户正在编辑的本地状态
-  useEffect(() => {
-    if (settings && localSettings === null) setLocalSettings(settings);
-  }, [settings, localSettings]);
-
-  function handleModelChange(model: string) {
-    if (!localSettings) return;
-    setLocalSettings({ ...localSettings, model });
-  }
-
-  async function handleSave() {
-    if (localSettings) await updateSettings(localSettings);
-  }
-
-  const apiKey = (localSettings?.env as Record<string, string> | undefined)?.["ANTHROPIC_API_KEY"] ?? "";
+  const [tab, setTab] = useState<Tab>("global");
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
       <header
-        className="px-8 py-5 border-b flex-shrink-0"
+        className="px-6 py-3 border-b flex items-center gap-3 flex-shrink-0"
         style={{ borderColor: "var(--border)", background: "var(--surface-card)" }}
       >
-        <h1 className="text-xl font-semibold" style={{ color: "var(--text-primary)" }}>全局设置</h1>
-        <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>
-          管理 ~/.claude/settings.json
-        </p>
+        <h1 className="font-semibold text-base" style={{ color: "var(--text-primary)" }}>设置</h1>
+        <div style={{ width: "1px", height: "18px", background: "var(--border)" }} />
+        {(["global", "project"] as Tab[]).map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+            style={{
+              background: tab === t ? "var(--accent)" : "transparent",
+              color: tab === t ? "white" : "var(--text-secondary)",
+            }}
+          >
+            {t === "global" ? <SettingsIcon size={12} /> : <FolderOpen size={12} />}
+            {t === "global" ? "全局" : "项目级"}
+          </button>
+        ))}
       </header>
 
-      <div className="flex-1 overflow-y-auto px-8 py-6 space-y-6">
+      <div className="flex-1 overflow-hidden">
+        {tab === "global" ? <GlobalSettings /> : <ProjectSettings />}
+      </div>
+    </div>
+  );
+}
+
+function GlobalSettings() {
+  const { settings, fetchSettings, updateSettings, settingsLoading } = useAppStore();
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [localSettings, setLocalSettings] = useState<Settings | null>(null);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saved" | "error">("idle");
+
+  useEffect(() => { fetchSettings(); }, [fetchSettings]);
+  useEffect(() => {
+    if (settings && localSettings === null) setLocalSettings(settings);
+  }, [settings, localSettings]);
+
+  const apiKey = (localSettings?.env as Record<string, string> | undefined)?.["ANTHROPIC_API_KEY"] ?? "";
+
+  async function handleSave() {
+    if (!localSettings) return;
+    try {
+      await updateSettings(localSettings);
+      setSaveStatus("saved");
+      setTimeout(() => setSaveStatus("idle"), 3000);
+    } catch {
+      setSaveStatus("error");
+    }
+  }
+
+  return (
+    <div className="h-full flex flex-col overflow-hidden">
+      <div className="flex-1 overflow-y-auto px-8 py-6 space-y-5">
         {settingsLoading ? (
-          <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-24 rounded-xl animate-pulse" style={{ background: "var(--surface-2)" }} />
-            ))}
-          </div>
+          <LoadingSkeleton count={3} height="h-24" />
         ) : (
           <>
-            {/* 模型设置 */}
             <Section icon={<Cpu size={15} />} title="默认模型">
               <div className="grid grid-cols-3 gap-3">
                 {MODELS.map((m) => (
                   <button
                     key={m.id}
-                    onClick={() => handleModelChange(m.id)}
+                    onClick={() => localSettings && setLocalSettings({ ...localSettings, model: m.id })}
                     className="rounded-lg px-4 py-3 text-left transition-all"
                     style={{
                       background: localSettings?.model === m.id ? "rgba(217,113,57,0.1)" : "var(--surface-2)",
@@ -76,7 +100,6 @@ export function SettingsPage() {
               </div>
             </Section>
 
-            {/* API Key */}
             <Section icon={<Shield size={15} />} title="API 密钥">
               <div className="relative">
                 <input
@@ -84,44 +107,150 @@ export function SettingsPage() {
                   value={apiKey}
                   readOnly
                   className="w-full font-mono text-sm px-4 py-3 rounded-lg outline-none pr-10"
-                  style={{
-                    background: "var(--editor-body)",
-                    color: "var(--editor-text)",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                  }}
+                  style={{ background: "var(--editor-body)", color: "var(--editor-text)", border: "1px solid rgba(255,255,255,0.08)" }}
                 />
-                <button
-                  onClick={() => setShowApiKey((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2"
-                >
+                <button onClick={() => setShowApiKey((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2">
                   {showApiKey
                     ? <EyeOff size={15} style={{ color: "var(--text-tertiary)" }} />
                     : <Eye size={15} style={{ color: "var(--text-tertiary)" }} />}
                 </button>
               </div>
               <p className="text-xs mt-2" style={{ color: "var(--text-tertiary)" }}>
-                在 settings.json 的 env.ANTHROPIC_API_KEY 中管理
+                在 env.ANTHROPIC_API_KEY 中管理，此处只读
               </p>
             </Section>
 
-            {/* 权限预览 */}
             <Section icon={<Shield size={15} />} title="权限规则">
               <PermissionList label="允许" items={localSettings?.permissions?.allow ?? []} color="#22c55e" />
-              <PermissionList label="拒绝" items={localSettings?.permissions?.deny ?? []}  color="#ef4444" />
+              <PermissionList label="拒绝" items={localSettings?.permissions?.deny ?? []} color="#ef4444" />
+              <PermissionList label="询问" items={localSettings?.permissions?.ask ?? []} color="#f59e0b" />
             </Section>
-
-            {/* 保存按钮 */}
-            <div className="flex justify-end">
-              <button
-                onClick={handleSave}
-                className="flex items-center gap-2 px-6 py-2 rounded-lg text-sm font-medium"
-                style={{ background: "var(--accent)", color: "white" }}
-              >
-                <SettingsIcon size={14} /> 保存设置
-              </button>
-            </div>
           </>
         )}
+      </div>
+
+      <div
+        className="px-8 py-3 border-t flex items-center justify-end gap-3"
+        style={{ borderColor: "var(--border)", background: "var(--surface-2)" }}
+      >
+        <SaveStatusBadge status={saveStatus} />
+        <button
+          onClick={handleSave}
+          disabled={!localSettings}
+          className="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium disabled:opacity-40"
+          style={{ background: "var(--accent)", color: "white" }}
+        >
+          <Save size={14} /> 保存全局设置
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ProjectSettings() {
+  const { projects } = useAppStore();
+  const [selectedProjectId, setSelectedProjectId] = useState(projects[0]?.id ?? "");
+  const selectedProject = projects.find((p) => p.id === selectedProjectId);
+  const [settings, setSettings] = useState<Settings | null>(null);
+  const [rawJson, setRawJson] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saved" | "error">("idle");
+  const [jsonError, setJsonError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!selectedProject) return;
+    setLoading(true);
+    api.readProjectSettings(selectedProject.path)
+      .then((s) => {
+        setSettings(s);
+        setRawJson(JSON.stringify(s, null, 2));
+        setJsonError(null);
+      })
+      .finally(() => setLoading(false));
+  }, [selectedProject?.path]);
+
+  function handleJsonChange(val: string) {
+    setRawJson(val);
+    try {
+      setSettings(JSON.parse(val));
+      setJsonError(null);
+    } catch {
+      setJsonError("JSON 格式错误");
+    }
+  }
+
+  async function handleSave() {
+    if (!selectedProject || !settings || jsonError) return;
+    setSaving(true);
+    setSaveStatus("idle");
+    try {
+      await api.writeProjectSettings(selectedProject.path, settings);
+      setSaveStatus("saved");
+      setTimeout(() => setSaveStatus("idle"), 3000);
+    } catch {
+      setSaveStatus("error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="h-full flex flex-col overflow-hidden">
+      {/* 项目选择 */}
+      <div className="px-8 py-3 border-b flex items-center gap-3 flex-shrink-0"
+        style={{ borderColor: "var(--border)", background: "var(--surface-2)" }}>
+        <span className="text-sm" style={{ color: "var(--text-secondary)" }}>项目</span>
+        <select
+          value={selectedProjectId}
+          onChange={(e) => setSelectedProjectId(e.target.value)}
+          className="flex-1 text-sm px-3 py-1.5 rounded-lg outline-none"
+          style={{ background: "var(--surface-card)", border: "1px solid var(--border)", color: "var(--text-primary)", fontFamily: "inherit" }}
+        >
+          {projects.map((p) => (
+            <option key={p.id} value={p.id}>{getProjectName(p.path)} — {p.path}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* JSON 编辑器 */}
+      <div className="flex-1 overflow-hidden flex flex-col">
+        {loading ? (
+          <div className="p-8"><LoadingSkeleton count={3} height="h-16" /></div>
+        ) : (
+          <textarea
+            value={rawJson}
+            onChange={(e) => handleJsonChange(e.target.value)}
+            className="flex-1 w-full resize-none outline-none font-mono text-sm p-5"
+            style={{
+              background: "var(--editor-body)",
+              color: jsonError ? "#ef4444" : "var(--editor-text)",
+              lineHeight: "1.7",
+              fontSize: "13px",
+            }}
+            placeholder="{}"
+            spellCheck={false}
+          />
+        )}
+      </div>
+
+      {/* 底部 */}
+      <div
+        className="px-8 py-3 border-t flex items-center gap-3"
+        style={{ borderColor: "var(--border)", background: "var(--surface-2)" }}
+      >
+        <span className="font-mono text-xs flex-1" style={{ color: jsonError ? "#ef4444" : "var(--text-tertiary)" }}>
+          {jsonError ?? (selectedProject ? `${selectedProject.path.replace(/\\/g, "/")}/.claude/settings.json` : "")}
+        </span>
+        <SaveStatusBadge status={saveStatus} />
+        <button
+          onClick={handleSave}
+          disabled={saving || !!jsonError || !selectedProject}
+          className="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium disabled:opacity-40"
+          style={{ background: "var(--accent)", color: "white" }}
+        >
+          <Save size={14} /> {saving ? "保存中…" : "保存项目设置"}
+        </button>
       </div>
     </div>
   );
@@ -129,10 +258,7 @@ export function SettingsPage() {
 
 function Section({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
   return (
-    <div
-      className="rounded-xl p-6"
-      style={{ background: "var(--surface-card)", border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)" }}
-    >
+    <div className="rounded-xl p-5" style={{ background: "var(--surface-card)", border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)" }}>
       <div className="flex items-center gap-2 mb-4">
         <span style={{ color: "var(--accent)" }}>{icon}</span>
         <h2 className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{title}</h2>
@@ -149,11 +275,8 @@ function PermissionList({ label, items, color }: { label: string; items: string[
       <div className="text-xs font-medium mb-2" style={{ color }}>{label}</div>
       <div className="flex flex-wrap gap-2">
         {items.map((item) => (
-          <span
-            key={item}
-            className="font-mono text-xs px-2 py-1 rounded-md"
-            style={{ background: `${color}15`, color, border: `1px solid ${color}30`, fontSize: "11px" }}
-          >
+          <span key={item} className="font-mono text-xs px-2 py-1 rounded-md"
+            style={{ background: `${color}15`, color, border: `1px solid ${color}30`, fontSize: "11px" }}>
             {item}
           </span>
         ))}
