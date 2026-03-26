@@ -182,27 +182,27 @@ export const api = {
   listProjects: () => invoke<Project[]>("list_projects"),
   getActiveSessions: () => invoke<ActiveSession[]>("get_active_sessions"),
   listSessions: (projectId: string) =>
-    invoke<ConversationMeta[]>("list_sessions", { project_id: projectId }),
+    invoke<ConversationMeta[]>("list_sessions", { projectId }),
   readConversation: (projectId: string, sessionId: string) =>
-    invoke<ConversationRecord[]>("read_conversation", { project_id: projectId, session_id: sessionId }),
+    invoke<ConversationRecord[]>("read_conversation", { projectId, sessionId }),
 
   // Memory
   listMemories: () => invoke<MemoryEntry[]>("list_memories"),
   readMemory: (path: string) => invoke<string>("read_memory", { path }),
   writeMemory: (fileName: string, content: string) =>
-    invoke<void>("write_memory", { file_name: fileName, content }),
+    invoke<void>("write_memory", { fileName, content }),
   deleteMemory: (fileName: string) =>
-    invoke<void>("delete_memory", { file_name: fileName }),
+    invoke<void>("delete_memory", { fileName }),
 
   // 历史搜索
   searchHistory: (query: string, projectFilter: string, limit: number) =>
-    invoke<HistoryEntry[]>("search_history", { query, project_filter: projectFilter, limit }),
+    invoke<HistoryEntry[]>("search_history", { query, projectFilter, limit }),
 
   // 项目级 Settings
   readProjectSettings: (projectPath: string) =>
-    invoke<Settings>("read_project_settings", { project_path: projectPath }),
+    invoke<Settings>("read_project_settings", { projectPath }),
   writeProjectSettings: (projectPath: string, settings: Settings) =>
-    invoke<void>("write_project_settings", { project_path: projectPath, settings }),
+    invoke<void>("write_project_settings", { projectPath, settings }),
 
   // 插件市场
   listMarketplaces: () => invoke<Marketplace[]>("list_marketplaces"),
@@ -220,7 +220,7 @@ export const api = {
   // Plugins
   listPlugins: () => invoke<PluginInfo[]>("list_plugins"),
   setPluginEnabled: (pluginId: string, enabled: boolean) =>
-    invoke<void>("set_plugin_enabled", { plugin_id: pluginId, enabled }),
+    invoke<void>("set_plugin_enabled", { pluginId, enabled }),
 
   // Hooks
   readHooks: () => invoke<HooksConfig>("read_hooks"),
@@ -231,7 +231,7 @@ export const api = {
   writeGlobalClaudeMd: (content: string) =>
     invoke<void>("write_global_claude_md", { content }),
   readProjectClaudeMd: (projectPath: string) =>
-    invoke<string>("read_project_claude_md", { project_path: projectPath }),
+    invoke<string>("read_project_claude_md", { projectPath }),
   writeProjectClaudeMd: (projectPath: string, content: string) =>
-    invoke<void>("write_project_claude_md", { project_path: projectPath, content }),
+    invoke<void>("write_project_claude_md", { projectPath, content }),
 };

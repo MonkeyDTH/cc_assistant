@@ -28,6 +28,7 @@ export function SessionsPage() {
   const [tab, setTab] = useState<TabMode>("sessions");
   const [sessions, setSessions] = useState<ConversationMeta[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedSession, setSelectedSession] = useState<ConversationMeta | null>(null);
 
   // 历史搜索
@@ -40,19 +41,26 @@ export function SessionsPage() {
 
   useEffect(() => {
     if (!currentProjectId || tab !== "sessions") return;
+    let mounted = true;
     setSelectedSession(null);
+    setLoadError(null);
     setLoading(true);
     api.listSessions(currentProjectId)
-      .then(setSessions)
-      .finally(() => setLoading(false));
+      .then((r) => { if (mounted) setSessions(r); })
+      .catch((e: unknown) => { if (mounted) setLoadError(e instanceof Error ? e.message : String(e)); })
+      .finally(() => { if (mounted) setLoading(false); });
+    return () => { mounted = false; };
   }, [currentProjectId, tab]);
 
   useEffect(() => {
     if (tab !== "history") return;
+    let mounted = true;
     setHistoryLoading(true);
     api.searchHistory(searchQuery, "", 100)
-      .then(setHistoryResults)
-      .finally(() => setHistoryLoading(false));
+      .then((r) => { if (mounted) setHistoryResults(r); })
+      .catch(() => { if (mounted) setHistoryResults([]); })
+      .finally(() => { if (mounted) setHistoryLoading(false); });
+    return () => { mounted = false; };
   }, [tab, searchQuery]);
 
   return (
@@ -147,6 +155,8 @@ export function SessionsPage() {
           {tab === "sessions" ? (
             loading ? (
               <LoadingSkeleton count={4} height="h-16" />
+            ) : loadError ? (
+              <EmptyState text={`加载失败: ${loadError}`} />
             ) : sessions.length === 0 ? (
               <EmptyState text="暂无会话记录" />
             ) : (
