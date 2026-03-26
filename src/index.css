@@ -1,0 +1,199 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* 核心色板 */
+  --sidebar-bg:    #0e1117;
+  --sidebar-hover: #1a1f2e;
+  --sidebar-active:#1e2740;
+  --sidebar-border: rgba(255,255,255,0.06);
+
+  --surface:       #f8f7f4;   /* 温暖米白主区 */
+  --surface-2:     #f0ede8;   /* 次级背景 */
+  --surface-card:  #ffffff;
+
+  --accent:        #d97139;   /* Claude 橙红 */
+  --accent-light:  #f0a06a;
+  --accent-dark:   #b85d28;
+  --accent-glow:   rgba(217, 113, 57, 0.15);
+
+  --text-primary:   #1a1a2e;
+  --text-secondary: #6b7280;
+  --text-tertiary:  #9ca3af;
+  --text-sidebar:   #e2e8f0;
+  --text-sidebar-muted: #64748b;
+
+  --border:        rgba(0,0,0,0.08);
+  --border-strong: rgba(0,0,0,0.14);
+
+  --shadow-sm:  0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md:  0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+  --shadow-lg:  0 10px 30px rgba(0,0,0,0.1), 0 4px 8px rgba(0,0,0,0.05);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+  font-family: 'Outfit', system-ui, sans-serif;
+  background: var(--surface);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 自定义滚动条 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.15);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0,0,0,0.25);
+}
+
+/* 侧边栏内的滚动条深色 */
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.1);
+}
+.sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.2);
+}
+
+/* 代码字体 */
+.font-mono {
+  font-family: 'DM Mono', 'Fira Code', monospace;
+}
+
+/* 激活脉冲动画 */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.6; transform: scale(1.4); }
+}
+.animate-pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* 淡入动画 */
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in-up {
+  animation: fade-in-up 0.4s ease forwards;
+}
+
+/* 卡片悬停 */
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--accent);
+}
+
+/* 侧边栏导航 item */
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-sidebar-muted);
+  transition: background 0.15s ease, color 0.15s ease;
+  user-select: none;
+  white-space: nowrap;
+}
+.nav-item:hover {
+  background: var(--sidebar-hover);
+  color: var(--text-sidebar);
+}
+.nav-item.active {
+  background: var(--sidebar-active);
+  color: #ffffff;
+  border-left: 3px solid var(--accent);
+  padding-left: 11px;
+}
+.nav-item.active .nav-icon {
+  color: var(--accent);
+}
+
+/* CodeMirror 编辑器定制 */
+.cm-editor {
+  height: 100%;
+  font-family: 'DM Mono', monospace !important;
+  font-size: 13px !important;
+  background: #1a1f2e !important;
+}
+.cm-scroller {
+  overflow: auto;
+}
+.cm-content {
+  padding: 16px !important;
+}
+.cm-line {
+  line-height: 1.7 !important;
+}
+
+/* Markdown 预览区排版 */
+.markdown-preview {
+  line-height: 1.8;
+  color: var(--text-primary);
+}
+.markdown-preview h1, .markdown-preview h2, .markdown-preview h3 {
+  font-weight: 600;
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  color: var(--text-primary);
+}
+.markdown-preview h1 { font-size: 1.5rem; border-bottom: 2px solid var(--accent); padding-bottom: 0.3em; }
+.markdown-preview h2 { font-size: 1.2rem; }
+.markdown-preview h3 { font-size: 1rem; }
+.markdown-preview p  { margin-bottom: 1em; }
+.markdown-preview ul, .markdown-preview ol { padding-left: 1.5em; margin-bottom: 1em; }
+.markdown-preview li { margin-bottom: 0.3em; }
+.markdown-preview code {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.85em;
+  background: var(--surface-2);
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+  color: var(--accent-dark);
+}
+.markdown-preview pre {
+  background: #1a1f2e;
+  color: #e2e8f0;
+  padding: 1em;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin-bottom: 1em;
+}
+.markdown-preview pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+}
+.markdown-preview blockquote {
+  border-left: 3px solid var(--accent);
+  padding-left: 1em;
+  color: var(--text-secondary);
+  margin-bottom: 1em;
+}
