@@ -38,23 +38,7 @@
   },
   "plugins": {
     "fs": {
-      "all": false,
-      "readFile": true,
-      "writeFile": true,
-      "readDir": true,
-      "copyFile": false,
-      "createDir": true,
-      "removeDir": false,
-      "removeFile": false,
-      "renameFile": false,
-      "exists": true,
-      "scope": {
-        "allow": [
-          "$HOME/.claude/**",
-          "$APPDATA/claude/**",
-          "$HOME/**/.claude/**"
-        ]
-      }
+      "requireLiteralLeadingDot": false
     }
   }
 }

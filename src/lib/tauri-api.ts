@@ -13,7 +13,7 @@ import type {
   MarketplacePlugin,
 } from "./types";
 
-const isTauri = typeof window !== "undefined" && "__TAURI__" in window;
+const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 // 模块级缓存，避免每次 invoke 都动态 import
 let _tauriInvoke: (<T>(cmd: string, args?: Record<string, unknown>) => Promise<T>) | null = null;
