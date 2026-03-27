@@ -4,10 +4,7 @@ import { api } from "@/lib/tauri-api";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
 import type { PluginInfo, MarketplacePlugin } from "@/lib/types";
 
-type Tab = "installed" | "marketplace";
-
 export function PluginsPage() {
-  const [tab, setTab] = useState<Tab>("installed");
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
@@ -120,7 +117,7 @@ function InstalledPlugins() {
   );
 }
 
-function MarketplaceBrowser() {
+export function _MarketplaceBrowser() {
   const [plugins, setPlugins] = useState<MarketplacePlugin[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
@@ -196,7 +193,7 @@ function MarketplaceBrowser() {
         ) : (
           <div className="grid gap-3">
             {filtered.map((plugin, i) => (
-              <MarketplacePluginCard key={plugin.id} plugin={plugin} animDelay={i * 30} />
+              <_MarketplacePluginCard key={plugin.id} plugin={plugin} animDelay={i * 30} />
             ))}
           </div>
         )}
@@ -205,7 +202,7 @@ function MarketplaceBrowser() {
   );
 }
 
-function MarketplacePluginCard({ plugin, animDelay }: { plugin: MarketplacePlugin; animDelay: number }) {
+export function _MarketplacePluginCard({ plugin, animDelay }: { plugin: MarketplacePlugin; animDelay: number }) {
   return (
     <div
       className="rounded-xl px-5 py-4 flex items-center gap-4 animate-fade-in-up"

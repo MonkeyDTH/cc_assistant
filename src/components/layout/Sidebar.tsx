@@ -5,7 +5,6 @@ import {
   Puzzle,
   GitBranch,
   MessageSquare,
-  Settings,
   Terminal,
   Activity,
   Brain,
