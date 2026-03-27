@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { Project, ActiveSession, Settings, NavItem } from "@/lib/types";
 import { api } from "@/lib/tauri-api";
+import { encodeCwdToProjectId } from "@/lib/utils";
 
 interface AppState {
   // 导航
@@ -16,6 +17,10 @@ interface AppState {
   // 选中的项目（用于 Sessions / Prompt 页面）
   selectedProjectId: string | null;
   setSelectedProject: (id: string | null) => void;
+
+  // 从 Dashboard 点击活跃会话后，传递给 SessionsPage 自动选中
+  preselectedSessionId: string | null;
+  setPreselectedSession: (id: string | null) => void;
 
   // Settings
   settings: Settings | null;
@@ -52,6 +57,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   selectedProjectId: null,
   setSelectedProject: (id) => set({ selectedProjectId: id }),
 
+  preselectedSessionId: null,
+  setPreselectedSession: (id) => set({ preselectedSessionId: id }),
+
   // Settings
   settings: null,
   settingsLoading: false,
@@ -72,9 +80,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   // 根据活跃会话判断某项目是否正在运行
   isProjectActive: (projectId: string) => {
     const { activeSessions } = get();
-    return activeSessions.some((s) => {
-      // cwd 解码比较（简单包含匹配）
-      return s.cwd.replace(/\\/g, "/").includes(projectId.replace(/--/g, "/"));
-    });
+    return activeSessions.some((s) =>
+      encodeCwdToProjectId(s.cwd).toLowerCase() === projectId.toLowerCase()
+    );
   },
 }));

@@ -1,3 +1,15 @@
+/**
+ * 将 cwd 按 Claude Code 的编码规则编码为 project.id，用于匹配活跃会话。
+ * 规则：`:\` → `--`，其余 `\`/`/`/`_` 均 → `-`
+ */
+export function encodeCwdToProjectId(cwd: string): string {
+  return cwd
+    .replace(/\\/g, "/")                              // 统一为正斜杠
+    .replace(/^([a-zA-Z]):\//,(_, d) => d.toUpperCase() + "--") // D:/ → D--
+    .replace(/\//g, "-")                              // 剩余 / → -
+    .replace(/_/g, "-");                              // _ → -
+}
+
 export function getProjectName(path: string): string {
   return path.replace(/\\/g, "/").split("/").filter(Boolean).pop() ?? path;
 }

@@ -1,6 +1,6 @@
 import { FolderOpen, MessageSquare, Clock, FileText } from "lucide-react";
 import type { Project, ActiveSession } from "@/lib/types";
-import { getProjectName, getProjectDir, formatRelativeTime } from "@/lib/utils";
+import { getProjectName, getProjectDir, formatRelativeTime, encodeCwdToProjectId } from "@/lib/utils";
 
 interface Props {
   project: Project;
@@ -12,9 +12,7 @@ interface Props {
 
 export function ProjectCard({ project, activeSessions, onSelectSessions, onEditPrompt, style }: Props) {
   const activeSession = activeSessions.find((s) =>
-    s.cwd.toLowerCase().replace(/\\/g, "/").includes(
-      project.path.toLowerCase().replace(/\\/g, "/")
-    )
+    encodeCwdToProjectId(s.cwd).toLowerCase() === project.id.toLowerCase()
   );
   const isActive = activeSession != null;
 

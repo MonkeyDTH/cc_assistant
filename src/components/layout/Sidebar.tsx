@@ -10,6 +10,7 @@ import {
   Activity,
 } from "lucide-react";
 import { useAppStore } from "@/stores/app-store";
+import { encodeCwdToProjectId } from "@/lib/utils";
 import type { NavItem } from "@/lib/types";
 
 interface NavEntry {
@@ -32,7 +33,18 @@ const NAV_ITEMS: NavEntry[] = [
 const GROUPS = ["概览", "配置", "系统"];
 
 export function Sidebar() {
-  const { activeNav, setActiveNav, activeSessions } = useAppStore();
+  const { activeNav, setActiveNav, activeSessions, projects } = useAppStore();
+
+  // 活跃项目数（去重）
+  const activeProjectCount = (() => {
+    const matched = new Set<string>();
+    for (const s of activeSessions) {
+      const encoded = encodeCwdToProjectId(s.cwd).toLowerCase();
+      const p = projects.find((p) => p.id.toLowerCase() === encoded);
+      if (p) matched.add(p.id);
+    }
+    return matched.size;
+  })();
 
   return (
     <aside
@@ -68,7 +80,7 @@ export function Sidebar() {
             style={{ background: "var(--accent)" }}
           />
           <span className="text-xs font-medium" style={{ color: "var(--accent-light)" }}>
-            {activeSessions.length} 个活跃会话
+            {activeProjectCount} 个项目 · {activeSessions.length} 个会话
           </span>
         </div>
       )}

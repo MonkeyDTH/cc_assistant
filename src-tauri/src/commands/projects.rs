@@ -126,7 +126,7 @@ pub fn list_projects() -> Result<Vec<Project>, String> {
     Ok(projects)
 }
 
-/// 获取当前活跃会话（读 ~/.claude/sessions/*.json）
+/// 获取当前活跃会话（读 ~/.claude/sessions/*.json，过滤已退出的进程）
 #[tauri::command]
 pub fn get_active_sessions() -> Result<Vec<ActiveSession>, String> {
     let sessions_dir = claude_dir().join("sessions");
@@ -134,6 +134,7 @@ pub fn get_active_sessions() -> Result<Vec<ActiveSession>, String> {
         return Ok(vec![]);
     }
 
+    let sys = sysinfo::System::new_all();
     let mut sessions = Vec::new();
     let entries = fs::read_dir(&sessions_dir).map_err(|e| e.to_string())?;
 
@@ -144,7 +145,11 @@ pub fn get_active_sessions() -> Result<Vec<ActiveSession>, String> {
         }
         if let Ok(content) = fs::read_to_string(&path) {
             if let Ok(session) = serde_json::from_str::<ActiveSession>(&content) {
-                sessions.push(session);
+                // 检查 PID 对应的进程是否仍在运行
+                let pid = sysinfo::Pid::from(session.pid as usize);
+                if sys.process(pid).is_some() {
+                    sessions.push(session);
+                }
             }
         }
     }
@@ -198,16 +203,25 @@ pub fn list_sessions(project_id: String) -> Result<Vec<ConversationMeta>, String
                     }
                     if first_message.is_none() && record["type"] == "user" {
                         let content_val = &record["message"]["content"];
-                        if let Some(text) = content_val.as_str() {
-                            first_message = Some(text.chars().take(80).collect());
+                        // 提取文本内容（支持字符串或数组格式）
+                        let extracted = if let Some(text) = content_val.as_str() {
+                            Some(text.to_string())
                         } else if let Some(arr) = content_val.as_array() {
-                            for block in arr {
+                            arr.iter().find_map(|block| {
                                 if block["type"] == "text" {
-                                    if let Some(text) = block["text"].as_str() {
-                                        first_message = Some(text.chars().take(80).collect());
-                                        break;
-                                    }
+                                    block["text"].as_str().map(|t| t.to_string())
+                                } else {
+                                    None
                                 }
+                            })
+                        } else {
+                            None
+                        };
+                        // 跳过系统注入的 caveat 消息（如 <local-command-caveat> 等）
+                        if let Some(text) = extracted {
+                            let trimmed = text.trim_start();
+                            if !trimmed.starts_with('<') {
+                                first_message = Some(trimmed.chars().take(80).collect());
                             }
                         }
                     }

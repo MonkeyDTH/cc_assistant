@@ -85,6 +85,9 @@ function UserMessage({ record }: { record: ConversationRecord }) {
       ? content.filter((b) => (b as ContentBlock).type === "text").map((b) => (b as { type: "text"; text: string }).text).join("\n")
       : "";
 
+  // 内容为空时不渲染
+  if (!text.trim()) return null;
+
   return (
     <div className="flex gap-2">
       <div
@@ -104,7 +107,7 @@ function UserMessage({ record }: { record: ConversationRecord }) {
           wordBreak: "break-word",
         }}
       >
-        {text || <span style={{ color: "var(--text-tertiary)" }}>（空消息）</span>}
+        {text}
       </div>
     </div>
   );
@@ -116,6 +119,13 @@ function AssistantMessage({ record }: { record: ConversationRecord }) {
   const blocks: ContentBlock[] = typeof content === "string"
     ? [{ type: "text", text: content }]
     : Array.isArray(content) ? content as ContentBlock[] : [];
+
+  // 无有效内容时不渲染（如纯空字符串的 text block）
+  const hasContent = blocks.some((b) =>
+    b.type === "thinking" || b.type === "tool_use" || b.type === "tool_result" ||
+    (b.type === "text" && b.text?.trim())
+  );
+  if (!hasContent) return null;
 
   return (
     <div className="flex gap-2">

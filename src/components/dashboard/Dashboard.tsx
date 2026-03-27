@@ -1,6 +1,9 @@
-import { RefreshCw, FolderOpen, Cpu, MessageSquare } from "lucide-react";
+import { useMemo } from "react";
+import { RefreshCw, FolderOpen, Cpu, MessageSquare, Layers } from "lucide-react";
 import { useAppStore } from "@/stores/app-store";
+import { encodeCwdToProjectId } from "@/lib/utils";
 import { ProjectCard } from "./ProjectCard";
+import { ActiveSessionsPanel } from "./ActiveSessionsPanel";
 
 export function Dashboard() {
   const {
@@ -23,6 +26,23 @@ export function Dashboard() {
   }
 
   const totalSessions = projects.reduce((s, p) => s + p.session_count, 0);
+
+  // 按 cwd 编码与 project.id 比对，统计有活跃进程的不重复项目数
+  const activeProjectCount = useMemo(() => {
+    const matched = new Set<string>();
+    for (const s of activeSessions) {
+      const encoded = encodeCwdToProjectId(s.cwd).toLowerCase();
+      const p = projects.find((p) => p.id.toLowerCase() === encoded);
+      if (p) matched.add(p.id);
+    }
+    return matched.size;
+  }, [activeSessions, projects]);
+
+  function handleNavigateToSession(projectId: string, sessionId: string) {
+    setSelectedProject(projectId);
+    useAppStore.getState().setPreselectedSession(sessionId);
+    setActiveNav("sessions");
+  }
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
@@ -83,6 +103,13 @@ export function Dashboard() {
         />
         <div style={{ width: "1px", background: "var(--border)" }} />
         <Stat
+          icon={<Layers size={14} />}
+          label="活跃项目"
+          value={activeProjectCount}
+          highlight={activeProjectCount > 0}
+        />
+        <div style={{ width: "1px", background: "var(--border)" }} />
+        <Stat
           icon={<Cpu size={14} />}
           label="活跃进程"
           value={activeSessions.length}
@@ -92,6 +119,13 @@ export function Dashboard() {
 
       {/* 项目卡片区 */}
       <div className="flex-1 overflow-y-auto px-8 py-6">
+        {/* 活跃会话面板 */}
+        <ActiveSessionsPanel
+          activeSessions={activeSessions}
+          projects={projects}
+          onNavigateToSession={handleNavigateToSession}
+        />
+
         {projectsLoading ? (
           <ProjectGridSkeleton />
         ) : projects.length === 0 ? (

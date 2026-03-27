@@ -24,7 +24,7 @@ function shortModel(model: string | null): string {
 type TabMode = "sessions" | "history";
 
 export function SessionsPage() {
-  const { projects, selectedProjectId, setSelectedProject } = useAppStore();
+  const { projects, selectedProjectId, setSelectedProject, activeSessions, preselectedSessionId, setPreselectedSession } = useAppStore();
   const [tab, setTab] = useState<TabMode>("sessions");
   const [sessions, setSessions] = useState<ConversationMeta[]>([]);
   const [loading, setLoading] = useState(false);
@@ -46,7 +46,16 @@ export function SessionsPage() {
     setLoadError(null);
     setLoading(true);
     api.listSessions(currentProjectId)
-      .then((r) => { if (mounted) setSessions(r); })
+      .then((r) => {
+        if (!mounted) return;
+        setSessions(r);
+        // 处理从 Dashboard 点击活跃会话跳转过来的预选
+        if (preselectedSessionId) {
+          const target = r.find((s) => s.id === preselectedSessionId);
+          if (target) setSelectedSession(target);
+          setPreselectedSession(null);
+        }
+      })
       .catch((e: unknown) => { if (mounted) setLoadError(e instanceof Error ? e.message : String(e)); })
       .finally(() => { if (mounted) setLoading(false); });
     return () => { mounted = false; };
@@ -161,15 +170,25 @@ export function SessionsPage() {
               <EmptyState text="暂无会话记录" />
             ) : (
               <div className="space-y-1.5">
-                {sessions.map((session, i) => (
-                  <SessionItem
-                    key={session.id}
-                    session={session}
-                    isSelected={selectedSession?.id === session.id}
-                    animDelay={i * 25}
-                    onClick={() => setSelectedSession(session)}
-                  />
-                ))}
+                {(() => {
+                  const activeIds = new Set(activeSessions.map((s) => s.sessionId));
+                  // 活跃会话排在最前面
+                  const sorted = [...sessions].sort((a, b) => {
+                    const aActive = activeIds.has(a.id) ? 0 : 1;
+                    const bActive = activeIds.has(b.id) ? 0 : 1;
+                    return aActive - bActive;
+                  });
+                  return sorted.map((session, i) => (
+                    <SessionItem
+                      key={session.id}
+                      session={session}
+                      isSelected={selectedSession?.id === session.id}
+                      isActive={activeIds.has(session.id)}
+                      animDelay={i * 25}
+                      onClick={() => setSelectedSession(session)}
+                    />
+                  ));
+                })()}
               </div>
             )
           ) : (
@@ -206,9 +225,10 @@ export function SessionsPage() {
   );
 }
 
-function SessionItem({ session, isSelected, animDelay, onClick }: {
+function SessionItem({ session, isSelected, isActive, animDelay, onClick }: {
   session: ConversationMeta;
   isSelected: boolean;
+  isActive: boolean;
   animDelay: number;
   onClick: () => void;
 }) {
@@ -217,13 +237,25 @@ function SessionItem({ session, isSelected, animDelay, onClick }: {
       onClick={onClick}
       className="w-full text-left rounded-xl px-4 py-3 flex items-center gap-3 animate-fade-in-up transition-colors"
       style={{
-        background: isSelected ? "rgba(217,113,57,0.08)" : "var(--surface-card)",
-        border: `1px solid ${isSelected ? "rgba(217,113,57,0.25)" : "var(--border)"}`,
+        background: isSelected ? "rgba(217,113,57,0.08)" : isActive ? "rgba(217,113,57,0.04)" : "var(--surface-card)",
+        border: `1px solid ${isSelected ? "rgba(217,113,57,0.25)" : isActive ? "rgba(217,113,57,0.15)" : "var(--border)"}`,
+        borderLeft: isActive ? "3px solid var(--accent)" : undefined,
         boxShadow: "var(--shadow-sm)",
         animationDelay: `${animDelay}ms`,
       }}
     >
-      <MessageSquare size={15} style={{ color: isSelected ? "var(--accent)" : "var(--text-tertiary)", flexShrink: 0 }} />
+      {isActive ? (
+        <div
+          className="w-3.5 h-3.5 rounded-full flex-shrink-0 flex items-center justify-center"
+        >
+          <div
+            className="w-2 h-2 rounded-full animate-pulse-dot"
+            style={{ background: "var(--accent)" }}
+          />
+        </div>
+      ) : (
+        <MessageSquare size={15} style={{ color: isSelected ? "var(--accent)" : "var(--text-tertiary)", flexShrink: 0 }} />
+      )}
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>
           {session.first_message ?? "（空会话）"}
@@ -241,6 +273,21 @@ function SessionItem({ session, isSelected, animDelay, onClick }: {
           >
             {shortModel(session.model)}
           </span>
+          {isActive && (
+            <span
+              className="flex items-center gap-1 px-1.5 py-0.5 rounded-full"
+              style={{
+                background: "rgba(217,113,57,0.12)",
+                border: "1px solid rgba(217,113,57,0.25)",
+              }}
+            >
+              <div
+                className="w-1 h-1 rounded-full animate-pulse-dot"
+                style={{ background: "var(--accent)" }}
+              />
+              <span style={{ color: "var(--accent)", fontSize: "10px", fontWeight: 500 }}>活跃</span>
+            </span>
+          )}
         </div>
       </div>
       <ChevronRight size={13} style={{ color: "var(--text-tertiary)", flexShrink: 0 }} />
