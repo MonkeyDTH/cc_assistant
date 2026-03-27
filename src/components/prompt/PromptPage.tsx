@@ -116,12 +116,16 @@ function PromptEditor({ onTabChange, topTab }: { onTabChange: (t: TopTab) => voi
         await api.writeGlobalClaudeMd(content);
       } else if (selectedProject) {
         await api.writeProjectClaudeMd(selectedProject.path, content);
+      } else {
+        // mode=project 但没有选中项目，应被按钮 disabled 拦截，这里兜底
+        throw new Error(`保存失败：mode=${mode}，未选中项目`);
       }
       setOriginalContent(content);
       setSaveStatus("saved");
       saveTimerRef.current = setTimeout(() => setSaveStatus("idle"), 3000);
-    } catch {
+    } catch (e) {
       setSaveStatus("error");
+      console.error("[PromptPage] 保存失败:", e, { mode, path: selectedProject?.path });
     } finally {
       setSaving(false);
     }
@@ -238,7 +242,7 @@ function PromptEditor({ onTabChange, topTab }: { onTabChange: (t: TopTab) => voi
       >
         <span className="font-mono text-xs" style={{ color: "var(--text-tertiary)", fontSize: "11px" }}>
           {mode === "global" ? "~/.claude/CLAUDE.md" : selectedProject
-            ? `${selectedProject.path.replace(/\\/g, "/")}/.claude/CLAUDE.md`
+            ? `${selectedProject.path.replace(/\\/g, "/")}/CLAUDE.md`
             : "未选择项目"}
         </span>
         {isDirty && (

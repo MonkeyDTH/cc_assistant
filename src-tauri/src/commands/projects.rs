@@ -5,20 +5,26 @@ use std::path::PathBuf;
 use super::claude_dir;
 
 /// 解码项目目录名为原始路径
-/// 规则：`--` → `\`（Windows）或 `/`（Unix），同时还原盘符冒号
+/// Claude Code 编码规则：
+///   路径分隔符（\ 或 /）→ 单个 -
+///   原始连字符（-）      → 双 --
+///   Windows 盘符 D:\    → D--（首段双横线）
 fn decode_project_path(encoded: &str) -> String {
-    // 示例：D--Projects-Personal-cc_assistant → D:\Projects\Personal\cc_assistant
-    // 先把 -- 替换为临时占位，再把单个 - 还原为 /
-    // 实际上 Claude Code 用 -- 替换路径分隔符，单个 - 是路径中本来的连字符
-    // 正确规则：把第一段（盘符）的 -- 变成 :\，其余 -- 变成 \
-    let parts: Vec<&str> = encoded.splitn(3, "--").collect();
-    if parts.len() >= 2 && parts[0].len() == 1 {
-        // Windows 路径，如 D--Projects-...
-        let rest = encoded[3..].replace("--", "\\");
+    let parts: Vec<&str> = encoded.splitn(2, "--").collect();
+    if parts.len() == 2 && parts[0].len() == 1 {
+        // Windows 路径：D--Projects-Personal-playground → D:\Projects\Personal\playground
+        let rest = parts[1]
+            .replace("--", "\x00") // 先保护原始连字符（双横线）
+            .replace('-', "\\")    // 路径分隔符（单横线）→ 反斜杠
+            .replace('\x00', "-"); // 恢复原始连字符
         format!("{}:\\{}", parts[0].to_uppercase(), rest)
     } else {
-        // Unix 路径
-        format!("/{}", encoded.replace("--", "/"))
+        // Unix 路径：--foo-bar → /foo/bar
+        let rest = encoded
+            .replace("--", "\x00")
+            .replace('-', "/")
+            .replace('\x00', "-");
+        format!("/{}", rest.trim_start_matches('/'))
     }
 }
 
@@ -75,11 +81,11 @@ pub fn list_projects() -> Result<Vec<Project>, String> {
             continue;
         }
         let encoded = entry.file_name().to_string_lossy().to_string();
-        let decoded_path = decode_project_path(&encoded);
 
-        // 统计 .jsonl 会话文件
+        // 统计 .jsonl 会话文件，同时从 cwd 字段获取真实路径
         let mut session_count = 0usize;
         let mut last_modified: Option<std::time::SystemTime> = None;
+        let mut real_path_from_cwd: Option<String> = None;
 
         if let Ok(sub_entries) = fs::read_dir(&path) {
             for sub in sub_entries.flatten() {
@@ -95,9 +101,25 @@ pub fn list_projects() -> Result<Vec<Project>, String> {
                             }
                         }
                     }
+                    // 从第一个找到的 cwd 字段读取真实路径
+                    if real_path_from_cwd.is_none() {
+                        if let Ok(content) = fs::read_to_string(&sub_path) {
+                            for line in content.lines() {
+                                if let Ok(v) = serde_json::from_str::<serde_json::Value>(line) {
+                                    if let Some(cwd) = v.get("cwd").and_then(|c| c.as_str()) {
+                                        real_path_from_cwd = Some(cwd.to_string());
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
+
+        // cwd 优先，fallback 到编码解码
+        let decoded_path = real_path_from_cwd.unwrap_or_else(|| decode_project_path(&encoded));
 
         // 转换时间为 ISO 字符串
         let last_session_at = last_modified.map(|t| {
@@ -110,7 +132,7 @@ pub fn list_projects() -> Result<Vec<Project>, String> {
 
         // 检查项目级 CLAUDE.md
         let project_real_path = PathBuf::from(&decoded_path);
-        let has_project_claude_md = project_real_path.join(".claude").join("CLAUDE.md").exists();
+        let has_project_claude_md = project_real_path.join("CLAUDE.md").exists();
 
         projects.push(Project {
             id: encoded,
