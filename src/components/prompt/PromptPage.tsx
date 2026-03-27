@@ -292,7 +292,7 @@ function ProjectSelector() {
         fontFamily: "inherit",
       }}
     >
-      <option value="">选择项目…</option>
+      {!selectedProjectId && <option value="">选择项目…</option>}
       {projects.map((p) => (
         <option key={p.id} value={p.id}>
           {getProjectName(p.path)} — {p.path}

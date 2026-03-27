@@ -6,7 +6,7 @@ Claude Code 的桌面管理面板。提供可视化界面统一管理 Claude Cod
 
 | 模块 | 功能 |
 |------|------|
-| **仪表盘** | 多项目卡片网格，显示会话数、最近活跃时间、活跃进程状态，30s 自动刷新 |
+| **仪表盘** | 多项目卡片网格，显示会话数、最近活跃时间、活跃会话状态，30s 自动刷新 |
 | **Prompt** | 可视化编辑全局及项目级 `CLAUDE.md`，CodeMirror 编辑器 + 实时预览 |
 | **Memory** | 浏览/新建/编辑/删除 `~/.claude/memory/*.md`，按 type 过滤，自动同步 `MEMORY.md` 索引 |
 | **Sessions** | 会话历史列表，点击查看完整消息时间线（含 thinking block、tool use 折叠展示）；历史搜索标签可全文搜索 `history.jsonl` |

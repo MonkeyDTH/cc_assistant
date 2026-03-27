@@ -27,7 +27,7 @@ export function Dashboard() {
 
   const totalSessions = projects.reduce((s, p) => s + p.session_count, 0);
 
-  // 按 cwd 编码与 project.id 比对，统计有活跃进程的不重复项目数
+  // 按 cwd 编码与 project.id 比对，统计有活跃会话的不重复项目数
   const activeProjectCount = useMemo(() => {
     const matched = new Set<string>();
     for (const s of activeSessions) {
@@ -111,7 +111,7 @@ export function Dashboard() {
         <div style={{ width: "1px", background: "var(--border)" }} />
         <Stat
           icon={<Cpu size={14} />}
-          label="活跃进程"
+          label="活跃会话"
           value={activeSessions.length}
           highlight={activeSessions.length > 0}
         />

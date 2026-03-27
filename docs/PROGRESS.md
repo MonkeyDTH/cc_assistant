@@ -13,7 +13,7 @@
 - [x] 字体方案：Outfit（UI）+ DM Mono（代码），CSS 变量主题系统
 - [x] 侧边栏导航（7 个模块：Dashboard / Sessions / Prompt / Hooks / Skills / Plugins / Settings）
 - [x] 主布局 MainLayout，路由通过 Zustand `activeNav` 状态切换（未使用 React Router）
-- [x] 仪表盘 Dashboard：项目卡片网格，活跃进程徽章，统计条，刷新按钮
+- [x] 仪表盘 Dashboard：项目卡片网格，活跃会话徽章，统计条，刷新按钮
 - [x] ProjectCard 组件：显示项目名/路径/会话数/最近时间，快捷操作按钮
 - [x] Prompt 编辑器：CodeMirror + 实时预览，全局/项目模式切换，保存/备份
 - [x] Rust 后端基础命令：`list_projects`, `get_active_sessions`, `list_sessions`, `read_conversation`, `read_settings`, `write_settings`, `read_global_claude_md`, `write_global_claude_md`, `read_project_claude_md`, `write_project_claude_md`

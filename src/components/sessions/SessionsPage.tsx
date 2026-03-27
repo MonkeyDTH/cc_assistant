@@ -99,7 +99,7 @@ export function SessionsPage() {
                   color: tab === t ? "white" : "var(--text-secondary)",
                 }}
               >
-                {t === "sessions" ? "会话记录" : "历史搜索"}
+                {t === "sessions" ? "会话记录" : "历史输入"}
               </button>
             ))}
           </div>
