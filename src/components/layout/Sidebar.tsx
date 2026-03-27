@@ -29,10 +29,10 @@ const NAV_ITEMS: NavEntry[] = [
   { id: "hooks",     label: "Hooks",    icon: <GitBranch size={16} />,        group: "配置" },
   { id: "skills",    label: "Skills",   icon: <Zap size={16} />,              group: "配置" },
   { id: "plugins",   label: "Plugins",  icon: <Puzzle size={16} />,           group: "配置" },
-  { id: "settings",  label: "设置",     icon: <Settings size={16} />,         group: "系统" },
+  // { id: "settings",  label: "设置",     icon: <Settings size={16} />,         group: "系统" },
 ];
 
-const GROUPS = ["概览", "配置", "系统"];
+const GROUPS = ["概览", "配置" /*, "系统" */];
 
 export function Sidebar() {
   const { activeNav, setActiveNav, activeSessions, projects } = useAppStore();
@@ -122,7 +122,7 @@ export function Sidebar() {
         <div className="flex items-center gap-2">
           <Activity size={12} style={{ color: "var(--text-sidebar-muted)" }} />
           <span className="font-mono text-xs" style={{ color: "var(--text-sidebar-muted)" }}>
-            v0.1.0
+            v0.2.0
           </span>
         </div>
       </div>

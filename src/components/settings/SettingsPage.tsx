@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Settings as SettingsIcon, Eye, EyeOff, Shield, Cpu, FolderOpen, Save } from "lucide-react";
+import { Settings as SettingsIcon, Shield, Cpu, FolderOpen, Save } from "lucide-react";
 import { useAppStore } from "@/stores/app-store";
 import { api } from "@/lib/tauri-api";
 import { getProjectName } from "@/lib/utils";
@@ -9,6 +9,7 @@ import type { Settings } from "@/lib/types";
 
 const MODELS = [
   { id: "opus[1m]",   label: "Claude Opus 4.6 (1M)" },
+  { id: "sonnet[1m]", label: "Claude Sonnet 4.6 (1M)" },
   { id: "sonnet",     label: "Claude Sonnet 4.6" },
   { id: "haiku",      label: "Claude Haiku 4.5" },
 ];
@@ -51,7 +52,6 @@ export function SettingsPage() {
 
 function GlobalSettings() {
   const { settings, fetchSettings, updateSettings, settingsLoading } = useAppStore();
-  const [showApiKey, setShowApiKey] = useState(false);
   const [localSettings, setLocalSettings] = useState<Settings | null>(null);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saved" | "error">("idle");
 
@@ -59,8 +59,6 @@ function GlobalSettings() {
   useEffect(() => {
     if (settings && localSettings === null) setLocalSettings(settings);
   }, [settings, localSettings]);
-
-  const apiKey = (localSettings?.env as Record<string, string> | undefined)?.["ANTHROPIC_API_KEY"] ?? "";
 
   async function handleSave() {
     if (!localSettings) return;
@@ -100,25 +98,6 @@ function GlobalSettings() {
               </div>
             </Section>
 
-            <Section icon={<Shield size={15} />} title="API 密钥">
-              <div className="relative">
-                <input
-                  type={showApiKey ? "text" : "password"}
-                  value={apiKey}
-                  readOnly
-                  className="w-full font-mono text-sm px-4 py-3 rounded-lg outline-none pr-10"
-                  style={{ background: "var(--editor-body)", color: "var(--editor-text)", border: "1px solid rgba(255,255,255,0.08)" }}
-                />
-                <button onClick={() => setShowApiKey((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2">
-                  {showApiKey
-                    ? <EyeOff size={15} style={{ color: "var(--text-tertiary)" }} />
-                    : <Eye size={15} style={{ color: "var(--text-tertiary)" }} />}
-                </button>
-              </div>
-              <p className="text-xs mt-2" style={{ color: "var(--text-tertiary)" }}>
-                在 env.ANTHROPIC_API_KEY 中管理，此处只读
-              </p>
-            </Section>
 
             <Section icon={<Shield size={15} />} title="权限规则">
               <PermissionList label="允许" items={localSettings?.permissions?.allow ?? []} color="#22c55e" />

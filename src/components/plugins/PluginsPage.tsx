@@ -16,25 +16,10 @@ export function PluginsPage() {
         style={{ borderColor: "var(--border)", background: "var(--surface-card)" }}
       >
         <h1 className="font-semibold text-base" style={{ color: "var(--text-primary)" }}>Plugins</h1>
-        <div style={{ width: "1px", height: "18px", background: "var(--border)" }} />
-        {(["installed", "marketplace"] as Tab[]).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-            style={{
-              background: tab === t ? "var(--accent)" : "transparent",
-              color: tab === t ? "white" : "var(--text-secondary)",
-            }}
-          >
-            {t === "installed" ? <Puzzle size={12} /> : <Store size={12} />}
-            {t === "installed" ? "已安装" : "市场"}
-          </button>
-        ))}
       </header>
 
       <div className="flex-1 overflow-hidden">
-        {tab === "installed" ? <InstalledPlugins /> : <MarketplaceBrowser />}
+        <InstalledPlugins />
       </div>
     </div>
   );
