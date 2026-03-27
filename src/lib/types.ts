@@ -154,6 +154,7 @@ export interface MarketplacePlugin {
 export type NavItem =
   | "dashboard"
   | "prompt"
+  | "memory"
   | "skills"
   | "plugins"
   | "hooks"

@@ -5,6 +5,7 @@ import { useAppStore } from "@/stores/app-store";
 // 懒加载各页面，减小首屏 bundle
 const Dashboard    = lazy(() => import("@/components/dashboard/Dashboard").then((m) => ({ default: m.Dashboard })));
 const PromptPage   = lazy(() => import("@/components/prompt/PromptPage").then((m) => ({ default: m.PromptPage })));
+const MemoryPage   = lazy(() => import("@/components/memory/MemoryPage").then((m) => ({ default: m.MemoryPage })));
 const SkillsPage   = lazy(() => import("@/components/skills/SkillsPage").then((m) => ({ default: m.SkillsPage })));
 const PluginsPage  = lazy(() => import("@/components/plugins/PluginsPage").then((m) => ({ default: m.PluginsPage })));
 const HooksPage    = lazy(() => import("@/components/hooks/HooksPage").then((m) => ({ default: m.HooksPage })));
@@ -14,6 +15,7 @@ const SettingsPage = lazy(() => import("@/components/settings/SettingsPage").the
 const PAGE_MAP = {
   dashboard: Dashboard,
   prompt:    PromptPage,
+  memory:    MemoryPage,
   skills:    SkillsPage,
   plugins:   PluginsPage,
   hooks:     HooksPage,

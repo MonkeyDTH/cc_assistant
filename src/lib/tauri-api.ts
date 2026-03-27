@@ -187,12 +187,13 @@ export const api = {
     invoke<ConversationRecord[]>("read_conversation", { projectId, sessionId }),
 
   // Memory
-  listMemories: () => invoke<MemoryEntry[]>("list_memories"),
+  listMemories: (projectId?: string | null) =>
+    invoke<MemoryEntry[]>("list_memories", { projectId: projectId ?? null }),
   readMemory: (path: string) => invoke<string>("read_memory", { path }),
-  writeMemory: (fileName: string, content: string) =>
-    invoke<void>("write_memory", { fileName, content }),
-  deleteMemory: (fileName: string) =>
-    invoke<void>("delete_memory", { fileName }),
+  writeMemory: (fileName: string, content: string, projectId?: string | null) =>
+    invoke<void>("write_memory", { fileName, content, projectId: projectId ?? null }),
+  deleteMemory: (fileName: string, projectId?: string | null) =>
+    invoke<void>("delete_memory", { fileName, projectId: projectId ?? null }),
 
   // 历史搜索
   searchHistory: (query: string, projectFilter: string, limit: number) =>
