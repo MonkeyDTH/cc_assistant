@@ -8,6 +8,8 @@ import {
   Terminal,
   Activity,
   Brain,
+  Cpu,
+  Shield,
 } from "lucide-react";
 import { useAppStore } from "@/stores/app-store";
 import { encodeCwdToProjectId } from "@/lib/utils";
@@ -27,11 +29,12 @@ const NAV_ITEMS: NavEntry[] = [
   { id: "memory",   label: "Memory",   icon: <Brain size={16} />,            group: "配置" },
   { id: "hooks",     label: "Hooks",    icon: <GitBranch size={16} />,        group: "配置" },
   { id: "skills",    label: "Skills",   icon: <Zap size={16} />,              group: "配置" },
-  { id: "plugins",   label: "Plugins",  icon: <Puzzle size={16} />,           group: "配置" },
-  // { id: "settings",  label: "设置",     icon: <Settings size={16} />,         group: "系统" },
+  { id: "plugins",    label: "Plugins",  icon: <Puzzle size={16} />,  group: "配置" },
+  { id: "model",      label: "模型",     icon: <Cpu size={16} />,    group: "系统" },
+  { id: "permission", label: "权限",     icon: <Shield size={16} />, group: "系统" },
 ];
 
-const GROUPS = ["概览", "配置" /*, "系统" */];
+const GROUPS = ["概览", "配置", "系统"];
 
 export function Sidebar() {
   const { activeNav, setActiveNav, activeSessions, projects } = useAppStore();

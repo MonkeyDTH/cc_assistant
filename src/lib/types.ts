@@ -159,4 +159,5 @@ export type NavItem =
   | "plugins"
   | "hooks"
   | "sessions"
-  | "settings";
+  | "model"
+  | "permission";

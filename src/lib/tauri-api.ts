@@ -136,6 +136,12 @@ function mockInvoke<T>(cmd: string, _args?: Record<string, unknown>): T {
 
     read_project_settings: {} as Settings,
 
+    get_env_vars: {
+      ANTHROPIC_DEFAULT_OPUS_MODEL:   "claude-opus-4-6[1m]",
+      ANTHROPIC_DEFAULT_SONNET_MODEL: "claude-sonnet-4-6[1m]",
+      ANTHROPIC_DEFAULT_HAIKU_MODEL:  "claude-haiku-4-5",
+    } as Record<string, string>,
+
     list_marketplaces: [
       { id: "claude-plugins-official", source: { source: "github", repo: "anthropics/claude-plugins-official" }, install_location: "", last_updated: new Date().toISOString() },
     ] as Marketplace[],
@@ -226,6 +232,9 @@ export const api = {
   // Hooks
   readHooks: () => invoke<HooksConfig>("read_hooks"),
   writeHooks: (hooks: HooksConfig) => invoke<void>("write_hooks", { hooks }),
+
+  // 环境变量
+  getEnvVars: (names: string[]) => invoke<Record<string, string>>("get_env_vars", { names }),
 
   // Prompt
   readGlobalClaudeMd: () => invoke<string>("read_global_claude_md"),

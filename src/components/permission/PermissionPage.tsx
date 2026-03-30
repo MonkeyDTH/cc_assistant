@@ -1,22 +1,15 @@
 import { useEffect, useState } from "react";
-import { Settings as SettingsIcon, Shield, Cpu, FolderOpen, Save } from "lucide-react";
+import { Shield, FolderOpen, Save } from "lucide-react";
 import { useAppStore } from "@/stores/app-store";
 import { api } from "@/lib/tauri-api";
 import { getProjectName } from "@/lib/utils";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
 import { SaveStatusBadge } from "@/components/ui/SaveStatusBadge";
-import type { Settings } from "@/lib/types";
-
-const MODELS = [
-  { id: "opus[1m]",   label: "Claude Opus 4.6 (1M)" },
-  { id: "sonnet[1m]", label: "Claude Sonnet 4.6 (1M)" },
-  { id: "sonnet",     label: "Claude Sonnet 4.6" },
-  { id: "haiku",      label: "Claude Haiku 4.5" },
-];
+import type { Permissions, Settings } from "@/lib/types";
 
 type Tab = "global" | "project";
 
-export function SettingsPage() {
+export function PermissionPage() {
   const [tab, setTab] = useState<Tab>("global");
 
   return (
@@ -25,7 +18,7 @@ export function SettingsPage() {
         className="px-6 py-3 border-b flex items-center gap-3 flex-shrink-0"
         style={{ borderColor: "var(--border)", background: "var(--surface-card)" }}
       >
-        <h1 className="font-semibold text-base" style={{ color: "var(--text-primary)" }}>设置</h1>
+        <h1 className="font-semibold text-base" style={{ color: "var(--text-primary)" }}>权限规则</h1>
         <div style={{ width: "1px", height: "18px", background: "var(--border)" }} />
         {(["global", "project"] as Tab[]).map((t) => (
           <button
@@ -37,20 +30,20 @@ export function SettingsPage() {
               color: tab === t ? "white" : "var(--text-secondary)",
             }}
           >
-            {t === "global" ? <SettingsIcon size={12} /> : <FolderOpen size={12} />}
+            {t === "global" ? <Shield size={12} /> : <FolderOpen size={12} />}
             {t === "global" ? "全局" : "项目级"}
           </button>
         ))}
       </header>
 
       <div className="flex-1 overflow-hidden">
-        {tab === "global" ? <GlobalSettings /> : <ProjectSettings />}
+        {tab === "global" ? <GlobalPermissionSettings /> : <ProjectPermissionSettings />}
       </div>
     </div>
   );
 }
 
-function GlobalSettings() {
+function GlobalPermissionSettings() {
   const { settings, fetchSettings, updateSettings, settingsLoading } = useAppStore();
   const [localSettings, setLocalSettings] = useState<Settings | null>(null);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saved" | "error">("idle");
@@ -71,40 +64,29 @@ function GlobalSettings() {
     }
   }
 
+  const perms = localSettings?.permissions;
+
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      <div className="flex-1 overflow-y-auto px-8 py-6 space-y-5">
+      <div className="flex-1 overflow-y-auto px-8 py-6">
         {settingsLoading ? (
           <LoadingSkeleton count={3} height="h-24" />
         ) : (
-          <>
-            <Section icon={<Cpu size={15} />} title="默认模型">
-              <div className="grid grid-cols-3 gap-3">
-                {MODELS.map((m) => (
-                  <button
-                    key={m.id}
-                    onClick={() => localSettings && setLocalSettings({ ...localSettings, model: m.id })}
-                    className="rounded-lg px-4 py-3 text-left transition-all"
-                    style={{
-                      background: localSettings?.model === m.id ? "rgba(217,113,57,0.1)" : "var(--surface-2)",
-                      border: `1px solid ${localSettings?.model === m.id ? "rgba(217,113,57,0.3)" : "var(--border)"}`,
-                      color: localSettings?.model === m.id ? "var(--accent)" : "var(--text-primary)",
-                    }}
-                  >
-                    <div className="font-mono text-xs font-medium">{m.id}</div>
-                    <div className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>{m.label}</div>
-                  </button>
-                ))}
-              </div>
-            </Section>
-
-
-            <Section icon={<Shield size={15} />} title="权限规则">
-              <PermissionList label="允许" items={localSettings?.permissions?.allow ?? []} color="#22c55e" />
-              <PermissionList label="拒绝" items={localSettings?.permissions?.deny ?? []} color="#ef4444" />
-              <PermissionList label="询问" items={localSettings?.permissions?.ask ?? []} color="#f59e0b" />
-            </Section>
-          </>
+          <div className="rounded-xl p-5" style={{ background: "var(--surface-card)", border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)" }}>
+            <div className="flex items-center gap-2 mb-4">
+              <span style={{ color: "var(--accent)" }}><Shield size={15} /></span>
+              <h2 className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>权限规则</h2>
+            </div>
+            {perms && (perms.allow?.length || perms.deny?.length || perms.ask?.length) ? (
+              <>
+                <PermissionList label="允许" items={perms.allow ?? []} color="#22c55e" />
+                <PermissionList label="拒绝" items={perms.deny ?? []} color="#ef4444" />
+                <PermissionList label="询问" items={perms.ask ?? []} color="#f59e0b" />
+              </>
+            ) : (
+              <p className="text-sm" style={{ color: "var(--text-tertiary)" }}>暂无权限规则</p>
+            )}
+          </div>
         )}
       </div>
 
@@ -119,52 +101,38 @@ function GlobalSettings() {
           className="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium disabled:opacity-40"
           style={{ background: "var(--accent)", color: "white" }}
         >
-          <Save size={14} /> 保存全局设置
+          <Save size={14} /> 保存全局权限
         </button>
       </div>
     </div>
   );
 }
 
-function ProjectSettings() {
+function ProjectPermissionSettings() {
   const { projects } = useAppStore();
   const [selectedProjectId, setSelectedProjectId] = useState(projects[0]?.id ?? "");
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
-  const [settings, setSettings] = useState<Settings | null>(null);
-  const [rawJson, setRawJson] = useState("");
+  const [perms, setPerms] = useState<Permissions | undefined>(undefined);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saved" | "error">("idle");
-  const [jsonError, setJsonError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!selectedProject) return;
     setLoading(true);
     api.readProjectSettings(selectedProject.path)
-      .then((s) => {
-        setSettings(s);
-        setRawJson(JSON.stringify(s, null, 2));
-        setJsonError(null);
-      })
+      .then((s) => setPerms(s.permissions))
       .finally(() => setLoading(false));
   }, [selectedProject?.path]);
 
-  function handleJsonChange(val: string) {
-    setRawJson(val);
-    try {
-      setSettings(JSON.parse(val));
-      setJsonError(null);
-    } catch {
-      setJsonError("JSON 格式错误");
-    }
-  }
-
   async function handleSave() {
-    if (!selectedProject || !settings || jsonError) return;
+    if (!selectedProject) return;
     setSaving(true);
     setSaveStatus("idle");
     try {
-      await api.writeProjectSettings(selectedProject.path, settings);
+      // 读取完整设置后只修改 permissions 字段
+      const full = await api.readProjectSettings(selectedProject.path);
+      await api.writeProjectSettings(selectedProject.path, { ...full, permissions: perms });
       setSaveStatus("saved");
       setTimeout(() => setSaveStatus("idle"), 3000);
     } catch {
@@ -192,57 +160,43 @@ function ProjectSettings() {
         </select>
       </div>
 
-      {/* JSON 编辑器 */}
-      <div className="flex-1 overflow-hidden flex flex-col">
+      {/* 权限展示 */}
+      <div className="flex-1 overflow-y-auto px-8 py-6">
         {loading ? (
-          <div className="p-8"><LoadingSkeleton count={3} height="h-16" /></div>
+          <LoadingSkeleton count={3} height="h-16" />
         ) : (
-          <textarea
-            value={rawJson}
-            onChange={(e) => handleJsonChange(e.target.value)}
-            className="flex-1 w-full resize-none outline-none font-mono text-sm p-5"
-            style={{
-              background: "var(--editor-body)",
-              color: jsonError ? "#ef4444" : "var(--editor-text)",
-              lineHeight: "1.7",
-              fontSize: "13px",
-            }}
-            placeholder="{}"
-            spellCheck={false}
-          />
+          <div className="rounded-xl p-5" style={{ background: "var(--surface-card)", border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)" }}>
+            <div className="flex items-center gap-2 mb-4">
+              <span style={{ color: "var(--accent)" }}><Shield size={15} /></span>
+              <h2 className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>项目权限规则</h2>
+            </div>
+            {perms && (perms.allow?.length || perms.deny?.length || perms.ask?.length) ? (
+              <>
+                <PermissionList label="允许" items={perms.allow ?? []} color="#22c55e" />
+                <PermissionList label="拒绝" items={perms.deny ?? []} color="#ef4444" />
+                <PermissionList label="询问" items={perms.ask ?? []} color="#f59e0b" />
+              </>
+            ) : (
+              <p className="text-sm" style={{ color: "var(--text-tertiary)" }}>暂无权限规则</p>
+            )}
+          </div>
         )}
       </div>
 
-      {/* 底部 */}
       <div
-        className="px-8 py-3 border-t flex items-center gap-3"
+        className="px-8 py-3 border-t flex items-center justify-end gap-3"
         style={{ borderColor: "var(--border)", background: "var(--surface-2)" }}
       >
-        <span className="font-mono text-xs flex-1" style={{ color: jsonError ? "#ef4444" : "var(--text-tertiary)" }}>
-          {jsonError ?? (selectedProject ? `${selectedProject.path.replace(/\\/g, "/")}/.claude/settings.json` : "")}
-        </span>
         <SaveStatusBadge status={saveStatus} />
         <button
           onClick={handleSave}
-          disabled={saving || !!jsonError || !selectedProject}
+          disabled={saving || !selectedProject}
           className="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium disabled:opacity-40"
           style={{ background: "var(--accent)", color: "white" }}
         >
-          <Save size={14} /> {saving ? "保存中…" : "保存项目设置"}
+          <Save size={14} /> {saving ? "保存中…" : "保存项目权限"}
         </button>
       </div>
-    </div>
-  );
-}
-
-function Section({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-xl p-5" style={{ background: "var(--surface-card)", border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)" }}>
-      <div className="flex items-center gap-2 mb-4">
-        <span style={{ color: "var(--accent)" }}>{icon}</span>
-        <h2 className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{title}</h2>
-      </div>
-      {children}
     </div>
   );
 }
