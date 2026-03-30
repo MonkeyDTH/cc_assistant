@@ -42,7 +42,7 @@ pub struct Project {
     pub has_project_claude_md: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActiveSession {
     pub pid: u32,
     #[serde(rename = "sessionId")]
@@ -157,7 +157,8 @@ pub fn get_active_sessions() -> Result<Vec<ActiveSession>, String> {
     }
 
     let sys = sysinfo::System::new_all();
-    let mut sessions = Vec::new();
+    // pid → 最新的会话（/clear 后同一进程会产生新 session 文件，只保留最新的）
+    let mut pid_map: std::collections::HashMap<u32, ActiveSession> = std::collections::HashMap::new();
     let entries = fs::read_dir(&sessions_dir).map_err(|e| e.to_string())?;
 
     for entry in entries.flatten() {
@@ -170,12 +171,17 @@ pub fn get_active_sessions() -> Result<Vec<ActiveSession>, String> {
                 // 检查 PID 对应的进程是否仍在运行
                 let pid = sysinfo::Pid::from(session.pid as usize);
                 if sys.process(pid).is_some() {
-                    sessions.push(session);
+                    // 同一 PID 只保留 startedAt 最新的会话
+                    let entry = pid_map.entry(session.pid).or_insert_with(|| session.clone());
+                    if session.started_at > entry.started_at {
+                        *entry = session;
+                    }
                 }
             }
         }
     }
 
+    let sessions: Vec<ActiveSession> = pid_map.into_values().collect();
     Ok(sessions)
 }
 
