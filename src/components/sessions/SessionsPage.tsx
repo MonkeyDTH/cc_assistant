@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { MessageSquare, Clock, ChevronRight, Search, X, MonitorUp } from "lucide-react";
+import { MessageSquare, Clock, ChevronRight, Search, X, MonitorUp, Trash2 } from "lucide-react";
 import { useAppStore } from "@/stores/app-store";
 import { api } from "@/lib/tauri-api";
 
@@ -72,6 +72,12 @@ export function SessionsPage() {
       .finally(() => { if (mounted) setHistoryLoading(false); });
     return () => { mounted = false; };
   }, [tab, searchQuery]);
+
+  async function handleDeleteSession(session: ConversationMeta) {
+    await api.deleteSession(session.project_id, session.id);
+    setSessions((prev) => prev.filter((s) => s.id !== session.id));
+    if (selectedSession?.id === session.id) setSelectedSession(null);
+  }
 
   return (
     <div className="h-full flex overflow-hidden">
@@ -192,6 +198,7 @@ export function SessionsPage() {
                         activeCwd={activeSession?.cwd ?? null}
                         animDelay={i * 25}
                         onClick={() => setSelectedSession(session)}
+                        onDelete={() => handleDeleteSession(session)}
                       />
                     );
                   });
@@ -232,7 +239,7 @@ export function SessionsPage() {
   );
 }
 
-function SessionItem({ session, isSelected, isActive, activePid, activeCwd, animDelay, onClick }: {
+function SessionItem({ session, isSelected, isActive, activePid, activeCwd, animDelay, onClick, onDelete }: {
   session: ConversationMeta;
   isSelected: boolean;
   isActive: boolean;
@@ -240,10 +247,13 @@ function SessionItem({ session, isSelected, isActive, activePid, activeCwd, anim
   activeCwd: string | null;
   animDelay: number;
   onClick: () => void;
+  onDelete: () => void;
 }) {
+  const [pendingDelete, setPendingDelete] = useState(false);
+
   return (
     <div
-      className="rounded-xl animate-fade-in-up flex items-stretch transition-colors"
+      className="group rounded-xl animate-fade-in-up flex items-stretch transition-colors"
       style={{
         background: isSelected ? "rgba(217,113,57,0.08)" : isActive ? "rgba(217,113,57,0.04)" : "var(--surface-card)",
         border: `1px solid ${isSelected ? "rgba(217,113,57,0.25)" : isActive ? "rgba(217,113,57,0.15)" : "var(--border)"}`,
@@ -329,6 +339,51 @@ function SessionItem({ session, isSelected, isActive, activePid, activeCwd, anim
           }}
         >
           <MonitorUp size={14} />
+        </button>
+      )}
+
+      {/* 删除区域：普通态 hover 显示 trash，待确认态显示确认/取消 */}
+      {pendingDelete ? (
+        <div className="flex-shrink-0 flex items-stretch border-l" style={{ borderColor: "rgba(239,68,68,0.3)" }}>
+          <button
+            title="确认删除"
+            onClick={(e) => { e.stopPropagation(); onDelete(); }}
+            className="px-3 flex items-center gap-1 text-xs font-medium transition-colors"
+            style={{ color: "#ef4444" }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(239,68,68,0.10)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+          >
+            <Trash2 size={13} />
+            删除
+          </button>
+          <div style={{ width: "1px", background: "rgba(239,68,68,0.3)" }} />
+          <button
+            title="取消"
+            onClick={(e) => { e.stopPropagation(); setPendingDelete(false); }}
+            className="px-3 flex items-center text-xs transition-colors"
+            style={{ color: "var(--text-tertiary)" }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "var(--surface-2)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+          >
+            <X size={13} />
+          </button>
+        </div>
+      ) : (
+        <button
+          title="删除会话"
+          onClick={(e) => { e.stopPropagation(); setPendingDelete(true); }}
+          className="flex-shrink-0 px-3 flex items-center border-l transition-all opacity-0 group-hover:opacity-100"
+          style={{ borderColor: "var(--border)", color: "var(--text-tertiary)" }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = "#ef4444";
+            e.currentTarget.style.background = "rgba(239,68,68,0.08)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = "var(--text-tertiary)";
+            e.currentTarget.style.background = "transparent";
+          }}
+        >
+          <Trash2 size={14} />
         </button>
       )}
     </div>

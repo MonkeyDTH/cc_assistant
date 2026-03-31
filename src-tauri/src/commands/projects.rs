@@ -456,6 +456,21 @@ pub fn activate_session_window(pid: u32, cwd: String) -> Result<(), String> {
     }
 }
 
+/// 删除指定会话（删除对应的 .jsonl 文件）
+#[tauri::command]
+pub fn delete_session(project_id: String, session_id: String) -> Result<(), String> {
+    let file_path = claude_dir()
+        .join("projects")
+        .join(&project_id)
+        .join(format!("{}.jsonl", session_id));
+
+    match fs::remove_file(&file_path) {
+        Ok(_) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
 /// 读取完整会话内容（返回原始 JSONL 行数组）
 #[tauri::command]
 pub fn read_conversation(

@@ -191,6 +191,8 @@ export const api = {
     invoke<ConversationMeta[]>("list_sessions", { projectId }),
   readConversation: (projectId: string, sessionId: string) =>
     invoke<ConversationRecord[]>("read_conversation", { projectId, sessionId }),
+  deleteSession: (projectId: string, sessionId: string) =>
+    invoke<void>("delete_session", { projectId, sessionId }),
 
   // Memory
   listMemories: (projectId?: string | null) =>

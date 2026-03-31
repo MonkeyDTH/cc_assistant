@@ -14,6 +14,7 @@ pub fn run() {
             projects::list_sessions,
             projects::get_active_sessions,
             projects::read_conversation,
+            projects::delete_session,
             projects::activate_session_window,
             // 全局设置
             settings::read_settings,
