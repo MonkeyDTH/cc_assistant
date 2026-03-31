@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { Zap, FolderOpen, ChevronDown, ChevronUp } from "lucide-react";
+import { Zap, FolderOpen, ChevronDown, ChevronUp, MonitorUp } from "lucide-react";
 import { api } from "@/lib/tauri-api";
 import { getProjectName, encodeCwdToProjectId } from "@/lib/utils";
 import type { ActiveSession, Project, ConversationMeta } from "@/lib/types";
@@ -131,10 +131,9 @@ export function ActiveSessionsPanel({
               {/* 该项目下的活跃会话 */}
               <div className="space-y-1 pl-4">
                 {group.sessions.map((session) => (
-                  <button
+                  <div
                     key={session.sessionId}
-                    onClick={() => onNavigateToSession(group.project.id, session.sessionId)}
-                    className="w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
+                    className="flex items-center gap-1 rounded-lg transition-colors"
                     style={{ background: "transparent" }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.background = "rgba(217,113,57,0.08)";
@@ -143,33 +142,61 @@ export function ActiveSessionsPanel({
                       e.currentTarget.style.background = "transparent";
                     }}
                   >
-                    {/* 脉动点 */}
-                    <div
-                      className="w-1.5 h-1.5 rounded-full flex-shrink-0 animate-pulse-dot"
-                      style={{ background: "var(--accent)" }}
-                    />
-                    {/* 会话标题 */}
-                    <span
-                      className="flex-1 text-xs truncate"
-                      style={{ color: "var(--text-primary)" }}
+                    {/* 主区域：点击跳转到会话记录 */}
+                    <button
+                      onClick={() => onNavigateToSession(group.project.id, session.sessionId)}
+                      className="flex-1 text-left flex items-center gap-2 px-3 py-2 min-w-0"
                     >
-                      {titleMap.get(session.sessionId) ?? session.kind ?? "interactive"}
-                    </span>
-                    {/* PID */}
-                    <span
-                      className="font-mono text-xs flex-shrink-0"
-                      style={{ color: "var(--text-tertiary)", fontSize: "10px" }}
+                      {/* 脉动点 */}
+                      <div
+                        className="w-1.5 h-1.5 rounded-full flex-shrink-0 animate-pulse-dot"
+                        style={{ background: "var(--accent)" }}
+                      />
+                      {/* 会话标题 */}
+                      <span
+                        className="flex-1 text-xs truncate"
+                        style={{ color: "var(--text-primary)" }}
+                      >
+                        {titleMap.get(session.sessionId) ?? session.kind ?? "interactive"}
+                      </span>
+                      {/* PID */}
+                      <span
+                        className="font-mono text-xs flex-shrink-0"
+                        style={{ color: "var(--text-tertiary)", fontSize: "10px" }}
+                      >
+                        PID {session.pid}
+                      </span>
+                      {/* 相对时间 */}
+                      <span
+                        className="text-xs flex-shrink-0"
+                        style={{ color: "var(--text-tertiary)", fontSize: "10px" }}
+                      >
+                        {formatRelativeMs(session.startedAt)}
+                      </span>
+                    </button>
+                    {/* 激活窗口按钮 */}
+                    <button
+                      title="激活终端窗口"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        api.activateSessionWindow(session.pid, session.cwd).catch((err: unknown) => {
+                          console.warn("激活窗口失败:", err);
+                        });
+                      }}
+                      className="flex-shrink-0 p-1.5 mr-1 rounded transition-colors"
+                      style={{ color: "var(--text-tertiary)" }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.color = "var(--accent)";
+                        e.currentTarget.style.background = "rgba(217,113,57,0.12)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.color = "var(--text-tertiary)";
+                        e.currentTarget.style.background = "transparent";
+                      }}
                     >
-                      PID {session.pid}
-                    </span>
-                    {/* 相对时间 */}
-                    <span
-                      className="text-xs flex-shrink-0"
-                      style={{ color: "var(--text-tertiary)", fontSize: "10px" }}
-                    >
-                      {formatRelativeMs(session.startedAt)}
-                    </span>
-                  </button>
+                      <MonitorUp size={12} />
+                    </button>
+                  </div>
                 ))}
               </div>
             </div>

@@ -278,6 +278,184 @@ pub fn list_sessions(project_id: String) -> Result<Vec<ConversationMeta>, String
     Ok(metas)
 }
 
+/// 激活指定 PID 会话所在的终端窗口（仅 Windows）
+///
+/// 三优先级查找：
+///   1. 标题匹配：PID 在祖先链中 AND 窗口标题包含项目目录名（cwd 末段）
+///   2. 精确匹配：PID 在非系统祖先链中的任意可见窗口
+///   3. 同名回退：祖先链中出现过的进程名 → 同名进程的可见窗口
+#[tauri::command]
+pub fn activate_session_window(pid: u32, cwd: String) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        use windows::Win32::Foundation::{BOOL, HWND, LPARAM};
+        use windows::Win32::UI::WindowsAndMessaging::{
+            BringWindowToTop, EnumWindows, GetWindowTextW, GetWindowThreadProcessId,
+            IsIconic, IsWindowVisible, SetForegroundWindow, ShowWindow, SW_RESTORE,
+        };
+
+        let sys = sysinfo::System::new_all();
+
+        // 从 cwd 提取项目目录名，用于匹配窗口标题（如 "cc_assistant"）
+        let project_name = std::path::Path::new(&cwd)
+            .file_name()
+            .map(|n| n.to_string_lossy().to_lowercase())
+            .unwrap_or_default();
+
+        // ── 1. 构建祖先链（无深度上限）──────────────────────────────────────
+        let mut ancestor_pids: Vec<u32> = vec![pid];
+        let mut ancestor_exe_names: Vec<String> = Vec::new();
+        let mut current = pid;
+        loop {
+            let sp = sysinfo::Pid::from(current as usize);
+            match sys.process(sp) {
+                Some(proc) => {
+                    ancestor_exe_names.push(
+                        proc.name().to_string_lossy().to_lowercase().to_owned(),
+                    );
+                    match proc.parent() {
+                        Some(parent_pid) => {
+                            let parent_u32 = usize::from(parent_pid) as u32;
+                            if parent_u32 == 0 || ancestor_pids.len() > 50 {
+                                break;
+                            }
+                            ancestor_pids.push(parent_u32);
+                            current = parent_u32;
+                        }
+                        None => break,
+                    }
+                }
+                None => break,
+            }
+        }
+
+        // ── 2. 区分应用进程和系统进程 ─────────────────────────────────────
+        const SYSTEM_EXES: &[&str] = &[
+            "explorer.exe", "svchost.exe", "lsass.exe", "services.exe",
+            "winlogon.exe", "wininit.exe", "csrss.exe", "smss.exe",
+            "dllhost.exe", "system", "registry",
+        ];
+
+        let app_ancestor_set: std::collections::HashSet<u32> = ancestor_pids
+            .iter()
+            .copied()
+            .zip(ancestor_exe_names.iter())
+            .filter(|(_, name)| !SYSTEM_EXES.contains(&name.as_str()))
+            .map(|(pid, _)| pid)
+            .collect();
+
+        let non_system_names: std::collections::HashSet<String> = ancestor_exe_names
+            .iter()
+            .filter(|n| !SYSTEM_EXES.contains(&n.as_str()))
+            .cloned()
+            .collect();
+
+        let ancestor_pid_set: std::collections::HashSet<u32> =
+            ancestor_pids.iter().copied().collect();
+        let fallback_pids: std::collections::HashSet<u32> = sys
+            .processes()
+            .iter()
+            .filter_map(|(p, proc)| {
+                let name = proc.name().to_string_lossy().to_lowercase();
+                let p_u32 = usize::from(*p) as u32;
+                if non_system_names.contains(&name) && !ancestor_pid_set.contains(&p_u32) {
+                    Some(p_u32)
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        // ── 3. EnumWindows：三优先级收集候选窗口 ────────────────────────────
+        struct FindData {
+            app_ancestors: std::collections::HashSet<u32>,
+            fallback_pids: std::collections::HashSet<u32>,
+            project_name: String, // 用于标题匹配的项目名
+            title_hwnd: HWND,    // 优先级1：标题含项目名
+            exact_hwnd: HWND,    // 优先级2：祖先进程的任意窗口
+            fallback_hwnd: HWND, // 优先级3：同名进程的窗口
+        }
+
+        unsafe extern "system" fn enum_cb(hwnd: HWND, lparam: LPARAM) -> BOOL {
+            let d = &mut *(lparam.0 as *mut FindData);
+            if !IsWindowVisible(hwnd).as_bool() {
+                return BOOL(1);
+            }
+            let mut wpid: u32 = 0;
+            GetWindowThreadProcessId(hwnd, Some(&mut wpid));
+
+            let in_ancestors = d.app_ancestors.contains(&wpid);
+            let in_fallback = !in_ancestors && d.fallback_pids.contains(&wpid);
+
+            if in_ancestors || in_fallback {
+                // 读取窗口标题
+                let mut buf = [0u16; 512];
+                let len = GetWindowTextW(hwnd, &mut buf);
+                let title = String::from_utf16_lossy(&buf[..len as usize]).to_lowercase();
+                let title_matches = !d.project_name.is_empty() && title.contains(d.project_name.as_str());
+
+                if in_ancestors && title_matches && d.title_hwnd.0.is_null() {
+                    d.title_hwnd = hwnd;
+                } else if in_ancestors && d.exact_hwnd.0.is_null() {
+                    d.exact_hwnd = hwnd;
+                } else if in_fallback && title_matches && d.title_hwnd.0.is_null() {
+                    d.title_hwnd = hwnd;
+                } else if in_fallback && d.fallback_hwnd.0.is_null() {
+                    d.fallback_hwnd = hwnd;
+                }
+
+                // 找到最高优先级即可停止
+                if !d.title_hwnd.0.is_null() {
+                    return BOOL(0);
+                }
+            }
+            BOOL(1)
+        }
+
+        let mut find_data = FindData {
+            app_ancestors: app_ancestor_set,
+            fallback_pids,
+            project_name,
+            title_hwnd: HWND(std::ptr::null_mut()),
+            exact_hwnd: HWND(std::ptr::null_mut()),
+            fallback_hwnd: HWND(std::ptr::null_mut()),
+        };
+
+        unsafe {
+            let _ = EnumWindows(
+                Some(enum_cb),
+                LPARAM(&mut find_data as *mut FindData as isize),
+            );
+        }
+
+        let hwnd = if !find_data.title_hwnd.0.is_null() {
+            find_data.title_hwnd
+        } else if !find_data.exact_hwnd.0.is_null() {
+            find_data.exact_hwnd
+        } else if !find_data.fallback_hwnd.0.is_null() {
+            find_data.fallback_hwnd
+        } else {
+            return Err("未找到该会话的终端窗口".to_string());
+        };
+
+        unsafe {
+            if IsIconic(hwnd).as_bool() {
+                let _ = ShowWindow(hwnd, SW_RESTORE);
+            }
+            let _ = BringWindowToTop(hwnd);
+            let _ = SetForegroundWindow(hwnd);
+        }
+
+        Ok(())
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = (pid, cwd);
+        Err("仅支持 Windows 平台".to_string())
+    }
+}
+
 /// 读取完整会话内容（返回原始 JSONL 行数组）
 #[tauri::command]
 pub fn read_conversation(

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { MessageSquare, Clock, ChevronRight, Search, X } from "lucide-react";
+import { MessageSquare, Clock, ChevronRight, Search, X, MonitorUp } from "lucide-react";
 import { useAppStore } from "@/stores/app-store";
 import { api } from "@/lib/tauri-api";
+
 import { getProjectName } from "@/lib/utils";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
 import { ConversationDetail } from "./ConversationDetail";
@@ -178,16 +179,22 @@ export function SessionsPage() {
                     const bActive = activeIds.has(b.id) ? 0 : 1;
                     return aActive - bActive;
                   });
-                  return sorted.map((session, i) => (
-                    <SessionItem
-                      key={session.id}
-                      session={session}
-                      isSelected={selectedSession?.id === session.id}
-                      isActive={activeIds.has(session.id)}
-                      animDelay={i * 25}
-                      onClick={() => setSelectedSession(session)}
-                    />
-                  ));
+                  return sorted.map((session, i) => {
+                    // 找到活跃会话对应的 PID
+                    const activeSession = activeSessions.find((s) => s.sessionId === session.id);
+                    return (
+                      <SessionItem
+                        key={session.id}
+                        session={session}
+                        isSelected={selectedSession?.id === session.id}
+                        isActive={activeIds.has(session.id)}
+                        activePid={activeSession?.pid ?? null}
+                        activeCwd={activeSession?.cwd ?? null}
+                        animDelay={i * 25}
+                        onClick={() => setSelectedSession(session)}
+                      />
+                    );
+                  });
                 })()}
               </div>
             )
@@ -225,17 +232,18 @@ export function SessionsPage() {
   );
 }
 
-function SessionItem({ session, isSelected, isActive, animDelay, onClick }: {
+function SessionItem({ session, isSelected, isActive, activePid, activeCwd, animDelay, onClick }: {
   session: ConversationMeta;
   isSelected: boolean;
   isActive: boolean;
+  activePid: number | null;
+  activeCwd: string | null;
   animDelay: number;
   onClick: () => void;
 }) {
   return (
-    <button
-      onClick={onClick}
-      className="w-full text-left rounded-xl px-4 py-3 flex items-center gap-3 animate-fade-in-up transition-colors"
+    <div
+      className="rounded-xl animate-fade-in-up flex items-stretch transition-colors"
       style={{
         background: isSelected ? "rgba(217,113,57,0.08)" : isActive ? "rgba(217,113,57,0.04)" : "var(--surface-card)",
         border: `1px solid ${isSelected ? "rgba(217,113,57,0.25)" : isActive ? "rgba(217,113,57,0.15)" : "var(--border)"}`,
@@ -244,54 +252,86 @@ function SessionItem({ session, isSelected, isActive, animDelay, onClick }: {
         animationDelay: `${animDelay}ms`,
       }}
     >
-      {isActive ? (
-        <div
-          className="w-3.5 h-3.5 rounded-full flex-shrink-0 flex items-center justify-center"
-        >
-          <div
-            className="w-2 h-2 rounded-full animate-pulse-dot"
-            style={{ background: "var(--accent)" }}
-          />
-        </div>
-      ) : (
-        <MessageSquare size={15} style={{ color: isSelected ? "var(--accent)" : "var(--text-tertiary)", flexShrink: 0 }} />
-      )}
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>
-          {session.first_message ?? "（空会话）"}
-        </p>
-        <div className="flex items-center gap-3 mt-0.5">
-          <span className="flex items-center gap-1 text-xs" style={{ color: "var(--text-tertiary)" }}>
-            <Clock size={10} /> {formatTime(session.started_at)}
-          </span>
-          <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-            {session.message_count} 条
-          </span>
-          <span
-            className="font-mono text-xs px-1.5 py-0.5 rounded"
-            style={{ background: "var(--surface-2)", color: "var(--text-tertiary)", fontSize: "10px" }}
-          >
-            {shortModel(session.model)}
-          </span>
-          {isActive && (
-            <span
-              className="flex items-center gap-1 px-1.5 py-0.5 rounded-full"
-              style={{
-                background: "rgba(217,113,57,0.12)",
-                border: "1px solid rgba(217,113,57,0.25)",
-              }}
-            >
-              <div
-                className="w-1 h-1 rounded-full animate-pulse-dot"
-                style={{ background: "var(--accent)" }}
-              />
-              <span style={{ color: "var(--accent)", fontSize: "10px", fontWeight: 500 }}>活跃</span>
+      {/* 主点击区域：查看会话内容 */}
+      <button
+        onClick={onClick}
+        className="flex-1 text-left px-4 py-3 flex items-center gap-3 min-w-0"
+      >
+        {isActive ? (
+          <div className="w-3.5 h-3.5 rounded-full flex-shrink-0 flex items-center justify-center">
+            <div
+              className="w-2 h-2 rounded-full animate-pulse-dot"
+              style={{ background: "var(--accent)" }}
+            />
+          </div>
+        ) : (
+          <MessageSquare size={15} style={{ color: isSelected ? "var(--accent)" : "var(--text-tertiary)", flexShrink: 0 }} />
+        )}
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>
+            {session.first_message ?? "（空会话）"}
+          </p>
+          <div className="flex items-center gap-3 mt-0.5">
+            <span className="flex items-center gap-1 text-xs" style={{ color: "var(--text-tertiary)" }}>
+              <Clock size={10} /> {formatTime(session.started_at)}
             </span>
-          )}
+            <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+              {session.message_count} 条
+            </span>
+            <span
+              className="font-mono text-xs px-1.5 py-0.5 rounded"
+              style={{ background: "var(--surface-2)", color: "var(--text-tertiary)", fontSize: "10px" }}
+            >
+              {shortModel(session.model)}
+            </span>
+            {isActive && (
+              <span
+                className="flex items-center gap-1 px-1.5 py-0.5 rounded-full"
+                style={{
+                  background: "rgba(217,113,57,0.12)",
+                  border: "1px solid rgba(217,113,57,0.25)",
+                }}
+              >
+                <div
+                  className="w-1 h-1 rounded-full animate-pulse-dot"
+                  style={{ background: "var(--accent)" }}
+                />
+                <span style={{ color: "var(--accent)", fontSize: "10px", fontWeight: 500 }}>活跃</span>
+              </span>
+            )}
+          </div>
         </div>
-      </div>
-      <ChevronRight size={13} style={{ color: "var(--text-tertiary)", flexShrink: 0 }} />
-    </button>
+        <ChevronRight size={13} style={{ color: "var(--text-tertiary)", flexShrink: 0 }} />
+      </button>
+
+      {/* 活跃会话：激活终端窗口按钮 */}
+      {isActive && activePid !== null && (
+        <button
+          title="激活终端窗口"
+          onClick={(e) => {
+            e.stopPropagation();
+            api.activateSessionWindow(activePid, activeCwd ?? "").catch((err: unknown) => {
+              console.warn("激活窗口失败:", err);
+            });
+          }}
+          className="flex-shrink-0 px-3 flex items-center border-l transition-colors"
+          style={{
+            borderColor: isSelected ? "rgba(217,113,57,0.25)" : "rgba(217,113,57,0.15)",
+            color: "var(--text-tertiary)",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = "var(--accent)";
+            e.currentTarget.style.background = "rgba(217,113,57,0.10)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = "var(--text-tertiary)";
+            e.currentTarget.style.background = "transparent";
+          }}
+        >
+          <MonitorUp size={14} />
+        </button>
+      )}
+    </div>
   );
 }
 

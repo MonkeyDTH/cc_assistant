@@ -233,6 +233,10 @@ export const api = {
   readHooks: () => invoke<HooksConfig>("read_hooks"),
   writeHooks: (hooks: HooksConfig) => invoke<void>("write_hooks", { hooks }),
 
+  // 激活会话终端窗口
+  activateSessionWindow: (pid: number, cwd: string) =>
+    invoke<void>("activate_session_window", { pid, cwd }),
+
   // 环境变量
   getEnvVars: (names: string[]) => invoke<Record<string, string>>("get_env_vars", { names }),
 
