@@ -12,6 +12,7 @@ import {
   Shield,
 } from "lucide-react";
 import { useAppStore } from "@/stores/app-store";
+import pkg from "../../../package.json";
 import { encodeCwdToProjectId } from "@/lib/utils";
 import type { NavItem } from "@/lib/types";
 
@@ -124,7 +125,7 @@ export function Sidebar() {
         <div className="flex items-center gap-2">
           <Activity size={12} style={{ color: "var(--text-sidebar-muted)" }} />
           <span className="font-mono text-xs" style={{ color: "var(--text-sidebar-muted)" }}>
-            v0.3.0
+            v{pkg.version}
           </span>
         </div>
       </div>
