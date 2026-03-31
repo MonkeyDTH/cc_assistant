@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Cpu, FolderOpen, Globe, Terminal, Monitor, Check, X, Save, AlertCircle } from "lucide-react";
+import { Cpu, FolderOpen, Globe, Terminal, Monitor, Check, X, Save, AlertCircle, KeyRound, Link } from "lucide-react";
 import { useAppStore } from "@/stores/app-store";
 import { api } from "@/lib/tauri-api";
 import { getProjectName } from "@/lib/utils";
@@ -25,6 +25,8 @@ export function ModelPage() {
   // 从系统读到的 env vars（只读）
   const [envVars, setEnvVars] = useState<ModelEnvVars | null>(null);
   const [envLoading, setEnvLoading] = useState(true);
+  // API 相关环境变量（只读展示）
+  const [apiEnvVars, setApiEnvVars] = useState<{ baseUrl: string; apiKey: string }>({ baseUrl: "", apiKey: "" });
 
   // 项目选择
   const [selectedProjectId, setSelectedProjectId] = useState(projects[0]?.id ?? "");
@@ -55,8 +57,19 @@ export function ModelPage() {
   // 读取系统环境变量
   useEffect(() => {
     setEnvLoading(true);
-    api.getEnvVars(MODEL_ENV_KEYS.map((m) => m.key))
-      .then(setEnvVars)
+    const modelKeys = MODEL_ENV_KEYS.map((m) => m.key);
+    const apiKeys = ["ANTHROPIC_BASE_URL", "ANTHROPIC_API_KEY"];
+    api.getEnvVars([...modelKeys, ...apiKeys])
+      .then((vars) => {
+        // 分别存入不同状态
+        const modelVars: ModelEnvVars = {};
+        for (const k of modelKeys) { if (vars[k]) modelVars[k] = vars[k]; }
+        setEnvVars(modelVars);
+        setApiEnvVars({
+          baseUrl: vars["ANTHROPIC_BASE_URL"] ?? "",
+          apiKey:  vars["ANTHROPIC_API_KEY"]  ?? "",
+        });
+      })
       .finally(() => setEnvLoading(false));
   }, []);
 
@@ -278,6 +291,43 @@ export function ModelPage() {
             未检测到 ANTHROPIC_DEFAULT_*_MODEL 环境变量，输入框将不提供自动补全建议
           </div>
         )}
+
+        {/* ── API 环境变量（只读）── */}
+        <div className="rounded-xl p-5"
+          style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}>
+          <div className="flex items-center gap-2 mb-4">
+            <Monitor size={13} style={{ color: "var(--text-tertiary)" }} />
+            <span className="text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>
+              API 环境变量（只读）
+            </span>
+          </div>
+          <div className="space-y-3">
+            {/* ANTHROPIC_BASE_URL */}
+            <div>
+              <div className="flex items-center gap-1.5 mb-1">
+                <Link size={11} style={{ color: "var(--text-tertiary)" }} />
+                <span className="font-mono text-xs" style={{ color: "var(--text-tertiary)" }}>ANTHROPIC_BASE_URL</span>
+              </div>
+              <div className="font-mono text-xs px-3 py-2 rounded-lg truncate"
+                style={{ background: "var(--surface-2)", color: apiEnvVars.baseUrl ? "var(--text-primary)" : "var(--text-tertiary)" }}>
+                {apiEnvVars.baseUrl || "未设置（使用默认 https://api.anthropic.com）"}
+              </div>
+            </div>
+            {/* ANTHROPIC_API_KEY */}
+            <div>
+              <div className="flex items-center gap-1.5 mb-1">
+                <KeyRound size={11} style={{ color: "var(--text-tertiary)" }} />
+                <span className="font-mono text-xs" style={{ color: "var(--text-tertiary)" }}>ANTHROPIC_API_KEY</span>
+              </div>
+              <div className="font-mono text-xs px-3 py-2 rounded-lg"
+                style={{ background: "var(--surface-2)", color: apiEnvVars.apiKey ? "var(--text-primary)" : "var(--text-tertiary)" }}>
+                {apiEnvVars.apiKey
+                  ? `${apiEnvVars.apiKey.slice(0, 8)}${"•".repeat(Math.max(0, apiEnvVars.apiKey.length - 12))}${apiEnvVars.apiKey.slice(-4)}`
+                  : "未设置"}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -124,7 +124,7 @@ export function Sidebar() {
         <div className="flex items-center gap-2">
           <Activity size={12} style={{ color: "var(--text-sidebar-muted)" }} />
           <span className="font-mono text-xs" style={{ color: "var(--text-sidebar-muted)" }}>
-            v0.2.0
+            v0.3.0
           </span>
         </div>
       </div>
