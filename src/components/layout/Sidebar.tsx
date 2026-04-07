@@ -10,7 +10,12 @@ import {
   Brain,
   Cpu,
   Shield,
+  KeyRound,
+  ChevronDown,
+  Check,
+  Settings,
 } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
 import { useAppStore } from "@/stores/app-store";
 import pkg from "../../../package.json";
 import { encodeCwdToProjectId } from "@/lib/utils";
@@ -31,14 +36,31 @@ const NAV_ITEMS: NavEntry[] = [
   { id: "hooks",     label: "Hooks",    icon: <GitBranch size={16} />,        group: "配置" },
   { id: "skills",    label: "Skills",   icon: <Zap size={16} />,              group: "配置" },
   { id: "plugins",    label: "Plugins",  icon: <Puzzle size={16} />,  group: "配置" },
-  { id: "model",      label: "模型",     icon: <Cpu size={16} />,    group: "系统" },
-  { id: "permission", label: "权限",     icon: <Shield size={16} />, group: "系统" },
+  { id: "model",      label: "模型",        icon: <Cpu size={16} />,      group: "系统" },
+  { id: "permission", label: "权限",        icon: <Shield size={16} />,   group: "系统" },
+  { id: "profiles",   label: "API Profiles", icon: <KeyRound size={16} />, group: "系统" },
 ];
 
 const GROUPS = ["概览", "配置", "系统"];
 
 export function Sidebar() {
-  const { activeNav, setActiveNav, activeSessions, projects } = useAppStore();
+  const { activeNav, setActiveNav, activeSessions, projects, profilesConfig, fetchProfiles, switchProfile } = useAppStore();
+  const [profileDropOpen, setProfileDropOpen] = useState(false);
+  const dropRef = useRef<HTMLDivElement>(null);
+
+  // 首次挂载时加载 profiles
+  useEffect(() => { fetchProfiles(); }, [fetchProfiles]);
+
+  // 点击外部关闭下拉
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (dropRef.current && !dropRef.current.contains(e.target as Node)) {
+        setProfileDropOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
 
   // 活跃项目数（去重）
   const activeProjectCount = (() => {
@@ -116,6 +138,85 @@ export function Sidebar() {
           );
         })}
       </nav>
+
+      {/* Profile 快捷切换 */}
+      <div
+        className="px-3 py-2 border-t"
+        style={{ borderColor: "var(--sidebar-border)" }}
+        ref={dropRef}
+      >
+        <div
+          className="font-mono text-xs uppercase tracking-widest px-2 mb-1"
+          style={{ color: "var(--text-sidebar-muted)", fontSize: "10px" }}
+        >
+          API Profile
+        </div>
+        <div className="relative">
+          <button
+            onClick={() => setProfileDropOpen((v) => !v)}
+            className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs"
+            style={{
+              background: profileDropOpen ? "var(--surface-2)" : "transparent",
+              border: "1px solid var(--sidebar-border)",
+              color: "var(--text-sidebar-muted)",
+            }}
+          >
+            <KeyRound size={12} style={{ flexShrink: 0 }} />
+            <span className="flex-1 text-left truncate" style={{ color: "rgba(255,255,255,0.85)" }}>
+              {profilesConfig?.activeProfileId
+                ? (profilesConfig.profiles.find((p) => p.id === profilesConfig.activeProfileId)?.name ?? "未知")
+                : "未选择"}
+            </span>
+            <ChevronDown size={11} style={{ flexShrink: 0, opacity: 0.6 }} />
+          </button>
+
+          {profileDropOpen && (
+            <div
+              className="absolute bottom-full left-0 right-0 mb-1 rounded-lg py-1 z-50"
+              style={{
+                background: "var(--surface-card)",
+                border: "1px solid var(--border)",
+                boxShadow: "0 -4px 16px rgba(0,0,0,0.3)",
+              }}
+            >
+              {(profilesConfig?.profiles ?? []).length === 0 && (
+                <div className="px-3 py-2 text-xs" style={{ color: "var(--text-tertiary)" }}>
+                  暂无 profiles
+                </div>
+              )}
+              {(profilesConfig?.profiles ?? []).map((profile) => {
+                const isActive = profile.id === profilesConfig?.activeProfileId;
+                return (
+                  <button
+                    key={profile.id}
+                    onClick={async () => {
+                      if (!isActive) await switchProfile(profile.id);
+                      setProfileDropOpen(false);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs"
+                    style={{ color: isActive ? "var(--accent)" : "var(--text-primary)" }}
+                  >
+                    <span className="flex-1 text-left truncate">{profile.name}</span>
+                    {isActive && <Check size={11} />}
+                  </button>
+                );
+              })}
+              <div
+                className="mx-2 my-1"
+                style={{ height: "1px", background: "var(--border)" }}
+              />
+              <button
+                onClick={() => { setActiveNav("profiles"); setProfileDropOpen(false); }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs"
+                style={{ color: "var(--text-tertiary)" }}
+              >
+                <Settings size={11} />
+                管理 Profiles
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* 底部版本信息 */}
       <div

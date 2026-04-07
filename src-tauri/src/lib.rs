@@ -1,6 +1,6 @@
 mod commands;
 
-use commands::{projects, settings, prompt, skills, plugins, hooks, memory, history, project_settings, marketplace, env_vars};
+use commands::{projects, settings, prompt, skills, plugins, hooks, memory, history, project_settings, marketplace, env_vars, profiles};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -48,6 +48,10 @@ pub fn run() {
             marketplace::list_marketplace_plugins,
             // 环境变量读取
             env_vars::get_env_vars,
+            // API Profiles
+            profiles::read_profiles,
+            profiles::write_profiles,
+            profiles::activate_profile,
         ])
         .run(tauri::generate_context!())
         .expect("运行 Tauri 应用时出错");

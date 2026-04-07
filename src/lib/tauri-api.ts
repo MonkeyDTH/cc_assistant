@@ -11,6 +11,7 @@ import type {
   HistoryEntry,
   Marketplace,
   MarketplacePlugin,
+  ProfilesConfig,
 } from "./types";
 
 const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -171,6 +172,34 @@ function mockInvoke<T>(cmd: string, _args?: Record<string, unknown>): T {
     read_hooks: {
       Notification: [{ hooks: [{ type: "command", command: "echo notified", async: true }] }],
     } as HooksConfig,
+
+    read_profiles: {
+      activeProfileId: "mock-profile-1",
+      profiles: [
+        {
+          id: "mock-profile-1",
+          name: "官方 Anthropic",
+          apiKey: "sk-ant-api03-mockkey",
+          baseUrl: "",
+          models: {
+            opus: "claude-opus-4-6",
+            sonnet: "claude-sonnet-4-6",
+            haiku: "claude-haiku-4-5-20251001",
+          },
+        },
+        {
+          id: "mock-profile-2",
+          name: "第三方代理",
+          apiKey: "sk-proxy-mockkey",
+          baseUrl: "https://api.example.com/v1",
+          models: {
+            opus: "gpt-4o",
+            sonnet: "gpt-4o-mini",
+            haiku: "gpt-3.5-turbo",
+          },
+        },
+      ],
+    } as ProfilesConfig,
   };
 
   const result = mocks[cmd];
@@ -241,6 +270,11 @@ export const api = {
 
   // 环境变量
   getEnvVars: (names: string[]) => invoke<Record<string, string>>("get_env_vars", { names }),
+
+  // API Profiles
+  readProfiles: () => invoke<ProfilesConfig>("read_profiles"),
+  writeProfiles: (config: ProfilesConfig) => invoke<void>("write_profiles", { config }),
+  activateProfile: (profileId: string) => invoke<void>("activate_profile", { profileId }),
 
   // Prompt
   readGlobalClaudeMd: () => invoke<string>("read_global_claude_md"),

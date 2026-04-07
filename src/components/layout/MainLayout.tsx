@@ -12,6 +12,7 @@ const HooksPage    = lazy(() => import("@/components/hooks/HooksPage").then((m) 
 const SessionsPage   = lazy(() => import("@/components/sessions/SessionsPage").then((m) => ({ default: m.SessionsPage })));
 const ModelPage      = lazy(() => import("@/components/model/ModelPage").then((m) => ({ default: m.ModelPage })));
 const PermissionPage = lazy(() => import("@/components/permission/PermissionPage").then((m) => ({ default: m.PermissionPage })));
+const ProfilesPage   = lazy(() => import("@/components/profiles/ProfilesPage").then((m) => ({ default: m.ProfilesPage })));
 
 const PAGE_MAP = {
   dashboard:  Dashboard,
@@ -23,6 +24,7 @@ const PAGE_MAP = {
   sessions:   SessionsPage,
   model:      ModelPage,
   permission: PermissionPage,
+  profiles:   ProfilesPage,
 } as const;
 
 function PageFallback() {

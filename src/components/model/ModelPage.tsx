@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Cpu, FolderOpen, Globe, Terminal, Monitor, Check, X, Save, AlertCircle, KeyRound, Link } from "lucide-react";
+import { Cpu, FolderOpen, Globe, Terminal, Monitor, Check, X, Save, AlertCircle, KeyRound, Link, ChevronDown, Zap, Hash } from "lucide-react";
 import { useAppStore } from "@/stores/app-store";
 import { api } from "@/lib/tauri-api";
 import { getProjectName } from "@/lib/utils";
@@ -18,7 +18,7 @@ const MODEL_ENV_KEYS = [
 type ModelEnvVars = Record<string, string>;
 
 export function ModelPage() {
-  const { settings, fetchSettings, updateSettings, settingsLoading, projects } = useAppStore();
+  const { settings, fetchSettings, updateSettings, settingsLoading, projects, profilesConfig, fetchProfiles, switchProfile, setActiveNav } = useAppStore();
 
   // 全局 settings（本地副本）
   const [globalSettings, setGlobalSettings] = useState<Settings | null>(null);
@@ -44,8 +44,18 @@ export function ModelPage() {
   const [projectSaveStatus, setProjectSaveStatus] = useState<"idle" | "saved" | "error">("idle");
   const [globalSaveStatus,  setGlobalSaveStatus]  = useState<"idle" | "saved" | "error">("idle");
 
-  // 加载全局 settings
+  // Profile 快捷切换状态
+  const [profileDropOpen, setProfileDropOpen] = useState(false);
+  const [activatingId, setActivatingId] = useState<string | null>(null);
+
+  // "保存当前配置为 Profile" 内联表单
+  const [savingAsProfile, setSavingAsProfile] = useState(false);
+  const [newProfileName, setNewProfileName] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  // 加载全局 settings 和 profiles
   useEffect(() => { fetchSettings(); }, [fetchSettings]);
+  useEffect(() => { fetchProfiles(); }, [fetchProfiles]);
   useEffect(() => {
     if (settings && globalSettings === null) {
       setGlobalSettings(settings);
@@ -158,6 +168,34 @@ export function ModelPage() {
       setTimeout(() => setGlobalSaveStatus("idle"), 3000);
     } catch {
       setGlobalSaveStatus("error");
+    }
+  }
+
+  // 将当前环境配置保存为新 Profile
+  async function saveCurrentAsProfile() {
+    if (!newProfileName.trim()) return;
+    setSavingProfile(true);
+    try {
+      const newProfile = {
+        id: crypto.randomUUID(),
+        name: newProfileName.trim(),
+        apiKey: apiEnvVars.apiKey,
+        baseUrl: apiEnvVars.baseUrl,
+        models: {
+          opus:   envVars?.ANTHROPIC_DEFAULT_OPUS_MODEL   ?? "",
+          sonnet: envVars?.ANTHROPIC_DEFAULT_SONNET_MODEL ?? "",
+          haiku:  envVars?.ANTHROPIC_DEFAULT_HAIKU_MODEL  ?? "",
+        },
+      };
+      const current = profilesConfig ?? { activeProfileId: null, profiles: [] };
+      await (useAppStore.getState().saveProfiles)({
+        ...current,
+        profiles: [...current.profiles, newProfile],
+      });
+      setNewProfileName("");
+      setSavingAsProfile(false);
+    } finally {
+      setSavingProfile(false);
     }
   }
 
@@ -292,42 +330,192 @@ export function ModelPage() {
           </div>
         )}
 
-        {/* ── API 环境变量（只读）── */}
-        <div className="rounded-xl p-5"
-          style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}>
-          <div className="flex items-center gap-2 mb-4">
-            <Monitor size={13} style={{ color: "var(--text-tertiary)" }} />
-            <span className="text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>
-              API 环境变量（只读）
-            </span>
-          </div>
-          <div className="space-y-3">
-            {/* ANTHROPIC_BASE_URL */}
-            <div>
-              <div className="flex items-center gap-1.5 mb-1">
-                <Link size={11} style={{ color: "var(--text-tertiary)" }} />
-                <span className="font-mono text-xs" style={{ color: "var(--text-tertiary)" }}>ANTHROPIC_BASE_URL</span>
+        {/* ── 当前激活 Profile（API Key / 端点 / 模型 ID）── */}
+        {(() => {
+          const activeProfile = profilesConfig?.profiles.find(
+            (p) => p.id === profilesConfig.activeProfileId
+          ) ?? null;
+          const profiles = profilesConfig?.profiles ?? [];
+
+          return (
+            <div className="rounded-xl p-5"
+              style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}>
+              {/* 标题行 */}
+              <div className="flex items-center gap-2 mb-4">
+                <KeyRound size={13} style={{ color: "var(--text-tertiary)" }} />
+                <span className="text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>
+                  API Profile
+                </span>
+                {activeProfile && (
+                  <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium"
+                    style={{ background: "rgba(217,113,57,0.12)", color: "var(--accent)" }}>
+                    <Check size={10} /> {activeProfile.name}
+                  </span>
+                )}
+                {/* 快捷切换下拉 */}
+                <div className="ml-auto relative">
+                  <button
+                    onClick={() => setProfileDropOpen((v) => !v)}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs"
+                    style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}
+                  >
+                    <Zap size={11} /> 切换
+                    <ChevronDown size={10} style={{ opacity: 0.6 }} />
+                  </button>
+                  {profileDropOpen && (
+                    <div
+                      className="absolute right-0 top-full mt-1 rounded-lg py-1 z-50 min-w-36"
+                      style={{ background: "var(--surface-card)", border: "1px solid var(--border)", boxShadow: "0 4px 16px rgba(0,0,0,0.3)" }}
+                      onMouseLeave={() => setProfileDropOpen(false)}
+                    >
+                      {profiles.length === 0 && (
+                        <div className="px-3 py-2 text-xs" style={{ color: "var(--text-tertiary)" }}>暂无 profiles</div>
+                      )}
+                      {profiles.map((p) => {
+                        const isCurrent = p.id === profilesConfig?.activeProfileId;
+                        return (
+                          <button key={p.id}
+                            onClick={async () => {
+                              if (!isCurrent) {
+                                setActivatingId(p.id);
+                                try { await switchProfile(p.id); } finally { setActivatingId(null); }
+                              }
+                              setProfileDropOpen(false);
+                            }}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-xs"
+                            style={{ color: isCurrent ? "var(--accent)" : "var(--text-primary)", opacity: activatingId === p.id ? 0.6 : 1 }}
+                          >
+                            <span className="flex-1 text-left truncate">{p.name}</span>
+                            {isCurrent && <Check size={10} />}
+                          </button>
+                        );
+                      })}
+                      <div className="mx-2 my-1" style={{ height: "1px", background: "var(--border)" }} />
+                      <button
+                        onClick={() => { setActiveNav("profiles"); setProfileDropOpen(false); }}
+                        className="w-full px-3 py-2 text-left text-xs"
+                        style={{ color: "var(--text-tertiary)" }}
+                      >
+                        管理 Profiles…
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="font-mono text-xs px-3 py-2 rounded-lg truncate"
-                style={{ background: "var(--surface-2)", color: apiEnvVars.baseUrl ? "var(--text-primary)" : "var(--text-tertiary)" }}>
-                {apiEnvVars.baseUrl || "未设置（使用默认 https://api.anthropic.com）"}
-              </div>
+
+              {activeProfile ? (
+                <div className="space-y-2">
+                  {/* API Key */}
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <KeyRound size={11} style={{ color: "var(--text-tertiary)" }} />
+                      <span className="font-mono text-xs" style={{ color: "var(--text-tertiary)" }}>ANTHROPIC_API_KEY</span>
+                    </div>
+                    <div className="font-mono text-xs px-3 py-2 rounded-lg"
+                      style={{ background: "var(--surface-2)", color: activeProfile.apiKey ? "var(--text-primary)" : "var(--text-tertiary)" }}>
+                      {activeProfile.apiKey
+                        ? `${activeProfile.apiKey.slice(0, 8)}${"•".repeat(Math.max(0, activeProfile.apiKey.length - 12))}${activeProfile.apiKey.slice(-4)}`
+                        : "未设置"}
+                    </div>
+                  </div>
+                  {/* Base URL */}
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Link size={11} style={{ color: "var(--text-tertiary)" }} />
+                      <span className="font-mono text-xs" style={{ color: "var(--text-tertiary)" }}>ANTHROPIC_BASE_URL</span>
+                    </div>
+                    <div className="font-mono text-xs px-3 py-2 rounded-lg truncate"
+                      style={{ background: "var(--surface-2)", color: activeProfile.baseUrl ? "var(--text-primary)" : "var(--text-tertiary)" }}>
+                      {activeProfile.baseUrl || "https://api.anthropic.com（默认）"}
+                    </div>
+                  </div>
+                  {/* 模型 IDs */}
+                  <div className="grid grid-cols-3 gap-2 pt-1">
+                    {(["opus", "sonnet", "haiku"] as const).map((tier) => (
+                      <div key={tier}>
+                        <div className="text-xs mb-1 capitalize" style={{ color: "var(--text-tertiary)" }}>{tier}</div>
+                        <div className="font-mono text-xs px-2 py-1.5 rounded-lg truncate"
+                          style={{ background: "var(--surface-2)", color: activeProfile.models[tier] ? "var(--text-primary)" : "var(--text-tertiary)" }}>
+                          {activeProfile.models[tier] || "—"}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* 自定义请求头 */}
+                  {Object.keys(activeProfile.customHeaders ?? {}).length > 0 && (
+                    <div className="pt-2 border-t" style={{ borderColor: "var(--border)" }}>
+                      <div className="flex items-center gap-1 text-xs mb-1" style={{ color: "var(--text-tertiary)" }}>
+                        <Hash size={11} />
+                        <span>自定义请求头（{Object.keys(activeProfile.customHeaders!).length} 项）</span>
+                      </div>
+                      <div className="space-y-1">
+                        {Object.entries(activeProfile.customHeaders!).map(([k, v]) => (
+                          <div key={k} className="flex items-center gap-2 font-mono text-xs">
+                            <span className="px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: "var(--surface-2)", color: "var(--accent)" }}>{k}</span>
+                            <span className="truncate" style={{ color: "var(--text-secondary)" }}>{v}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {/* 将当前环境变量配置另存为新 Profile */}
+                  <div className="pt-1 border-t" style={{ borderColor: "var(--border)" }}>
+                    <p className="text-xs mb-2" style={{ color: "var(--text-tertiary)" }}>
+                      从系统环境变量另存为新 Profile：
+                    </p>
+                    <SaveAsProfileInline
+                      open={savingAsProfile}
+                      name={newProfileName}
+                      saving={savingProfile}
+                      onOpen={() => setSavingAsProfile(true)}
+                      onCancel={() => { setSavingAsProfile(false); setNewProfileName(""); }}
+                      onNameChange={setNewProfileName}
+                      onSave={saveCurrentAsProfile}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-xs mb-3" style={{ color: "var(--text-tertiary)" }}>
+                    未激活任何 Profile，显示系统环境变量（只读）
+                  </p>
+                  {/* 系统 env 兜底展示 */}
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <KeyRound size={11} style={{ color: "var(--text-tertiary)" }} />
+                      <span className="font-mono text-xs" style={{ color: "var(--text-tertiary)" }}>ANTHROPIC_API_KEY</span>
+                    </div>
+                    <div className="font-mono text-xs px-3 py-2 rounded-lg"
+                      style={{ background: "var(--surface-2)", color: apiEnvVars.apiKey ? "var(--text-primary)" : "var(--text-tertiary)" }}>
+                      {apiEnvVars.apiKey
+                        ? `${apiEnvVars.apiKey.slice(0, 8)}${"•".repeat(Math.max(0, apiEnvVars.apiKey.length - 12))}${apiEnvVars.apiKey.slice(-4)}`
+                        : "未设置"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Link size={11} style={{ color: "var(--text-tertiary)" }} />
+                      <span className="font-mono text-xs" style={{ color: "var(--text-tertiary)" }}>ANTHROPIC_BASE_URL</span>
+                    </div>
+                    <div className="font-mono text-xs px-3 py-2 rounded-lg truncate"
+                      style={{ background: "var(--surface-2)", color: apiEnvVars.baseUrl ? "var(--text-primary)" : "var(--text-tertiary)" }}>
+                      {apiEnvVars.baseUrl || "未设置（使用默认 https://api.anthropic.com）"}
+                    </div>
+                  </div>
+                  <SaveAsProfileInline
+                    open={savingAsProfile}
+                    name={newProfileName}
+                    saving={savingProfile}
+                    onOpen={() => setSavingAsProfile(true)}
+                    onCancel={() => { setSavingAsProfile(false); setNewProfileName(""); }}
+                    onNameChange={setNewProfileName}
+                    onSave={saveCurrentAsProfile}
+                  />
+                </div>
+              )}
             </div>
-            {/* ANTHROPIC_API_KEY */}
-            <div>
-              <div className="flex items-center gap-1.5 mb-1">
-                <KeyRound size={11} style={{ color: "var(--text-tertiary)" }} />
-                <span className="font-mono text-xs" style={{ color: "var(--text-tertiary)" }}>ANTHROPIC_API_KEY</span>
-              </div>
-              <div className="font-mono text-xs px-3 py-2 rounded-lg"
-                style={{ background: "var(--surface-2)", color: apiEnvVars.apiKey ? "var(--text-primary)" : "var(--text-tertiary)" }}>
-                {apiEnvVars.apiKey
-                  ? `${apiEnvVars.apiKey.slice(0, 8)}${"•".repeat(Math.max(0, apiEnvVars.apiKey.length - 12))}${apiEnvVars.apiKey.slice(-4)}`
-                  : "未设置"}
-              </div>
-            </div>
-          </div>
-        </div>
+          );
+        })()}
       </div>
     </div>
   );
@@ -411,6 +599,59 @@ function CardHeader({ priority, icon, label, active, children }: {
   );
 }
 
+// ── 将当前环境配置保存为 Profile 的内联表单 ──
+function SaveAsProfileInline({
+  open, name, saving, onOpen, onCancel, onNameChange, onSave,
+}: {
+  open: boolean;
+  name: string;
+  saving: boolean;
+  onOpen: () => void;
+  onCancel: () => void;
+  onNameChange: (v: string) => void;
+  onSave: () => void;
+}) {
+  if (!open) {
+    return (
+      <button
+        onClick={onOpen}
+        className="text-xs px-3 py-1.5 rounded-lg"
+        style={{ background: "rgba(217,113,57,0.1)", color: "var(--accent)", border: "1px solid rgba(217,113,57,0.2)" }}
+      >
+        保存当前配置为 Profile…
+      </button>
+    );
+  }
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        autoFocus
+        value={name}
+        onChange={(e) => onNameChange(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") onSave(); if (e.key === "Escape") onCancel(); }}
+        placeholder="为这套配置起个名字"
+        className="flex-1 px-3 py-1.5 rounded-lg text-xs outline-none"
+        style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+      />
+      <button
+        onClick={onSave}
+        disabled={saving || !name.trim()}
+        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium"
+        style={{ background: "var(--accent)", color: "white", opacity: saving || !name.trim() ? 0.6 : 1 }}
+      >
+        <Save size={11} /> {saving ? "…" : "保存"}
+      </button>
+      <button
+        onClick={onCancel}
+        className="p-1.5 rounded-lg"
+        style={{ color: "var(--text-tertiary)", background: "var(--surface-2)" }}
+      >
+        <X size={12} />
+      </button>
+    </div>
+  );
+}
+
 // ── 模型输入框（datalist 建议为别名，不是完整 model ID）──
 function ModelInput({ value, onChange, suggestions, placeholder }: {
   value: string;
@@ -448,3 +689,4 @@ function ModelInput({ value, onChange, suggestions, placeholder }: {
     </div>
   );
 }
+

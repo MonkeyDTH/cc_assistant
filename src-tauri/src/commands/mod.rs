@@ -9,6 +9,7 @@ pub mod history;
 pub mod project_settings;
 pub mod marketplace;
 pub mod env_vars;
+pub mod profiles;
 
 use std::path::PathBuf;
 use std::fs;

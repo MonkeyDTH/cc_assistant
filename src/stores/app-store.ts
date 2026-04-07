@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Project, ActiveSession, Settings, NavItem } from "@/lib/types";
+import type { Project, ActiveSession, Settings, NavItem, ProfilesConfig } from "@/lib/types";
 import { api } from "@/lib/tauri-api";
 import { encodeCwdToProjectId } from "@/lib/utils";
 
@@ -27,6 +27,13 @@ interface AppState {
   settingsLoading: boolean;
   fetchSettings: () => Promise<void>;
   updateSettings: (settings: Settings) => Promise<void>;
+
+  // API Profiles
+  profilesConfig: ProfilesConfig | null;
+  profilesLoading: boolean;
+  fetchProfiles: () => Promise<void>;
+  saveProfiles: (config: ProfilesConfig) => Promise<void>;
+  switchProfile: (profileId: string) => Promise<void>;
 
   // 派生选择器（不存入 store state，仅作运行时函数）
   isProjectActive: (projectId: string) => boolean;
@@ -75,6 +82,31 @@ export const useAppStore = create<AppState>((set, get) => ({
   updateSettings: async (settings) => {
     await api.writeSettings(settings);
     set({ settings });
+  },
+
+  // API Profiles
+  profilesConfig: null,
+  profilesLoading: false,
+  fetchProfiles: async () => {
+    set({ profilesLoading: true });
+    try {
+      const profilesConfig = await api.readProfiles();
+      set({ profilesConfig });
+    } finally {
+      set({ profilesLoading: false });
+    }
+  },
+  saveProfiles: async (config) => {
+    await api.writeProfiles(config);
+    set({ profilesConfig: config });
+  },
+  switchProfile: async (profileId) => {
+    await api.activateProfile(profileId);
+    // 更新本地状态中的 activeProfileId
+    const current = get().profilesConfig;
+    if (current) {
+      set({ profilesConfig: { ...current, activeProfileId: profileId } });
+    }
   },
 
   // 根据活跃会话判断某项目是否正在运行

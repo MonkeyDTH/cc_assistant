@@ -149,6 +149,28 @@ export interface MarketplacePlugin {
   installed_version: string | null;
 }
 
+// ——— API Profiles ———
+
+export interface ProfileModels {
+  opus: string;
+  sonnet: string;
+  haiku: string;
+}
+
+export interface ApiProfile {
+  id: string;
+  name: string;
+  apiKey: string;
+  baseUrl: string;  // 空字符串表示使用默认端点
+  models: ProfileModels;
+  customHeaders?: Record<string, string>;  // 写入 ANTHROPIC_CUSTOM_HEADERS（JSON）
+}
+
+export interface ProfilesConfig {
+  activeProfileId: string | null;
+  profiles: ApiProfile[];
+}
+
 // ——— UI 状态 ———
 
 export type NavItem =
@@ -160,4 +182,5 @@ export type NavItem =
   | "hooks"
   | "sessions"
   | "model"
-  | "permission";
+  | "permission"
+  | "profiles";
