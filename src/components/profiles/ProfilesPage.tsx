@@ -290,19 +290,21 @@ function ProfileCard({
         />
         <InfoRow icon={<Cpu size={11} />} label="Haiku" value={profile.models.haiku || "—"} mono />
       </div>
-      {/* 自定义请求头 */}
-      {Object.keys(profile.customHeaders ?? {}).length > 0 && (
+      {/* 额外环境变量 */}
+      {Object.keys(profile.extraEnvVars ?? {}).length > 0 && (
         <div className="mt-3 pt-3 border-t" style={{ borderColor: "var(--border)" }}>
           <div className="flex items-center gap-1 text-xs mb-2" style={{ color: "var(--text-tertiary)" }}>
             <Hash size={11} />
-            <span>自定义请求头（{Object.keys(profile.customHeaders!).length} 项）</span>
+            <span>额外环境变量（{Object.keys(profile.extraEnvVars!).length} 项）</span>
           </div>
           <div className="space-y-1">
-            {Object.entries(profile.customHeaders!).map(([k, v]) => (
+            {Object.entries(profile.extraEnvVars ?? {}).map(([k, v]) => (
               <div key={k} className="flex items-center gap-2 font-mono text-xs">
                 <span className="px-2 py-0.5 rounded" style={{ background: "var(--surface-2)", color: "var(--accent)" }}>{k}</span>
-                <span style={{ color: "var(--text-tertiary)" }}>:</span>
-                <span className="truncate" style={{ color: "var(--text-secondary)" }}>{v}</span>
+                <span style={{ color: "var(--text-tertiary)" }}>=</span>
+                <span className="truncate" style={{ color: v ? "var(--text-secondary)" : "var(--text-tertiary)" }}>
+                  {v || "（空，激活时删除）"}
+                </span>
               </div>
             ))}
           </div>
@@ -506,31 +508,29 @@ function ProfileForm({
           </FormField>
         </div>
 
-        {/* 自定义请求头：key=draft.id 保证切换 profile 时重置编辑器内部状态 */}
-        <CustomHeadersEditor
-          key={draft.id}
-          value={draft.customHeaders ?? {}}
-          onChange={(headers) => onChange({ ...draft, customHeaders: headers })}
+        {/* 额外环境变量（如 OPENROUTER_API_KEY、ANTHROPIC_AUTH_TOKEN 等） */}
+        <ExtraEnvVarsEditor
+          key={`env-${draft.id}`}
+          value={draft.extraEnvVars ?? {}}
+          onChange={(vars) => onChange({ ...draft, extraEnvVars: vars })}
         />
       </div>
     </div>
   );
 }
 
-// ── 自定义请求头键值对编辑器 ──
-function CustomHeadersEditor({
+// ── 额外环境变量键值对编辑器 ──
+function ExtraEnvVarsEditor({
   value,
   onChange,
 }: {
   value: Record<string, string>;
   onChange: (v: Record<string, string>) => void;
 }) {
-  // 内部用数组维护顺序，方便增删
   const [rows, setRows] = useState<{ key: string; val: string }[]>(() =>
     Object.entries(value).map(([key, val]) => ({ key, val }))
   );
 
-  // 同步给父组件
   function sync(next: { key: string; val: string }[]) {
     setRows(next);
     const result: Record<string, string> = {};
@@ -543,15 +543,14 @@ function CustomHeadersEditor({
   function addRow() { sync([...rows, { key: "", val: "" }]); }
   function removeRow(i: number) { sync(rows.filter((_, idx) => idx !== i)); }
   function updateRow(i: number, field: "key" | "val", v: string) {
-    const next = rows.map((r, idx) => idx === i ? { ...r, [field]: v } : r);
-    sync(next);
+    sync(rows.map((r, idx) => idx === i ? { ...r, [field]: v } : r));
   }
 
   return (
     <div>
       <div className="flex items-center gap-1 text-xs mb-2" style={{ color: "var(--text-tertiary)" }}>
-        <Hash size={12} />
-        <span>自定义请求头（ANTHROPIC_CUSTOM_HEADERS）</span>
+        <div style={{ width: 12 }} />
+        <span>额外环境变量（激活时写入 settings.json env；值留空 = 删除该变量）</span>
         <button
           type="button"
           onClick={addRow}
@@ -563,7 +562,7 @@ function CustomHeadersEditor({
       </div>
       {rows.length === 0 && (
         <div className="text-xs px-2 py-1.5 rounded-lg" style={{ color: "var(--text-tertiary)", background: "var(--surface-2)" }}>
-          无自定义请求头
+          无额外环境变量（例：OPENROUTER_API_KEY、ANTHROPIC_AUTH_TOKEN）
         </div>
       )}
       <div className="space-y-1.5">
@@ -572,15 +571,15 @@ function CustomHeadersEditor({
             <input
               value={row.key}
               onChange={(e) => updateRow(i, "key", e.target.value)}
-              placeholder="Header-Name"
+              placeholder="ENV_VAR_NAME"
               className="w-2/5 px-2 py-1.5 rounded-lg text-xs font-mono outline-none"
               style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
             />
-            <span style={{ color: "var(--text-tertiary)", fontSize: "10px" }}>:</span>
+            <span style={{ color: "var(--text-tertiary)", fontSize: "10px" }}>=</span>
             <input
               value={row.val}
               onChange={(e) => updateRow(i, "val", e.target.value)}
-              placeholder="value"
+              placeholder="value（留空=激活时删除该变量）"
               className="flex-1 px-2 py-1.5 rounded-lg text-xs font-mono outline-none"
               style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
             />

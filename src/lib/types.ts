@@ -163,7 +163,7 @@ export interface ApiProfile {
   apiKey: string;
   baseUrl: string;  // 空字符串表示使用默认端点
   models: ProfileModels;
-  customHeaders?: Record<string, string>;  // 写入 ANTHROPIC_CUSTOM_HEADERS（JSON）
+  extraEnvVars?: Record<string, string>;   // 额外环境变量；空字符串值 = 删除该 key
 }
 
 export interface ProfilesConfig {

@@ -441,18 +441,20 @@ export function ModelPage() {
                       </div>
                     ))}
                   </div>
-                  {/* 自定义请求头 */}
-                  {Object.keys(activeProfile.customHeaders ?? {}).length > 0 && (
+                  {/* 额外环境变量 */}
+                  {Object.keys(activeProfile.extraEnvVars ?? {}).length > 0 && (
                     <div className="pt-2 border-t" style={{ borderColor: "var(--border)" }}>
                       <div className="flex items-center gap-1 text-xs mb-1" style={{ color: "var(--text-tertiary)" }}>
                         <Hash size={11} />
-                        <span>自定义请求头（{Object.keys(activeProfile.customHeaders!).length} 项）</span>
+                        <span>额外环境变量（{Object.keys(activeProfile.extraEnvVars!).length} 项）</span>
                       </div>
                       <div className="space-y-1">
-                        {Object.entries(activeProfile.customHeaders!).map(([k, v]) => (
+                        {Object.entries(activeProfile.extraEnvVars ?? {}).map(([k, v]) => (
                           <div key={k} className="flex items-center gap-2 font-mono text-xs">
                             <span className="px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: "var(--surface-2)", color: "var(--accent)" }}>{k}</span>
-                            <span className="truncate" style={{ color: "var(--text-secondary)" }}>{v}</span>
+                            <span className="truncate" style={{ color: v ? "var(--text-secondary)" : "var(--text-tertiary)" }}>
+                              {v || "（空，已删除）"}
+                            </span>
                           </div>
                         ))}
                       </div>
