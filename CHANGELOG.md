@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.5.0 - 2026-04-08
+
+✨ 新功能
+- Profile 支持额外环境变量，完善切换同步逻辑
+- 新增 API Profile 管理与快捷切换功能
+
+🐛 修复
+- 侧边栏版本号改为从 package.json 编译时读取
+
+🔧 其他
+- bump version to v0.5.0
+- 移除 docs 目录（本地保留，不纳入版本控制）
+- 新增 GitHub Actions 自动构建发版 workflow
+
 ## v0.4.0 - 2026-03-31
 
 ✨ 新功能
