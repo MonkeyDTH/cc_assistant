@@ -8,6 +8,27 @@ import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
 import { ConversationDetail } from "./ConversationDetail";
 import type { ConversationMeta, HistoryEntry } from "@/lib/types";
 
+// 根据模型名估算费用（美元/M tokens，含缓存定价）
+function estimateCost(
+  model: string | null,
+  input: number, output: number,
+  cacheWrite = 0, cacheRead = 0,
+): number {
+  let inputPrice = 3, outputPrice = 15, cacheWritePrice = 3.75, cacheReadPrice = 0.30;
+  if (model?.includes("opus")) {
+    inputPrice = 15; outputPrice = 75; cacheWritePrice = 18.75; cacheReadPrice = 1.50;
+  } else if (model?.includes("haiku")) {
+    inputPrice = 0.8; outputPrice = 4; cacheWritePrice = 1.00; cacheReadPrice = 0.08;
+  }
+  return (input * inputPrice + output * outputPrice + cacheWrite * cacheWritePrice + cacheRead * cacheReadPrice) / 1_000_000;
+}
+
+function formatCost(usd: number): string {
+  if (usd < 0.001) return `<$0.001`;
+  if (usd < 0.01)  return `$${usd.toFixed(4)}`;
+  return `$${usd.toFixed(3)}`;
+}
+
 function formatTime(iso: string | null): string {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -296,6 +317,26 @@ function SessionItem({ session, projectPath, isSelected, isActive, activePid, ac
             >
               {shortModel(session.model)}
             </span>
+            {(session.total_input_tokens + session.total_output_tokens + session.total_cache_read_tokens) > 0 && (
+              <span
+                className="font-mono text-xs px-1.5 py-0.5 rounded"
+                style={{ background: "rgba(217,113,57,0.08)", color: "var(--accent)", fontSize: "10px" }}
+                title={[
+                  `输入: ${session.total_input_tokens}`,
+                  `输出: ${session.total_output_tokens}`,
+                  session.total_cache_write_tokens > 0 ? `缓存写入: ${session.total_cache_write_tokens}` : "",
+                  session.total_cache_read_tokens  > 0 ? `缓存命中: ${session.total_cache_read_tokens}` : "",
+                ].filter(Boolean).join(" | ")}
+              >
+                ≈ {formatCost(estimateCost(
+                  session.model,
+                  session.total_input_tokens,
+                  session.total_output_tokens,
+                  session.total_cache_write_tokens,
+                  session.total_cache_read_tokens,
+                ))}
+              </span>
+            )}
             {isActive && (
               <span
                 className="flex items-center gap-1 px-1.5 py-0.5 rounded-full"

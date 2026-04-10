@@ -3,6 +3,41 @@ import { X, User, Bot, Wrench, Brain, ChevronDown, ChevronRight, Loader } from "
 import { api } from "@/lib/tauri-api";
 import type { ConversationRecord, ContentBlock } from "@/lib/types";
 
+interface UsageTokens {
+  input_tokens: number;
+  output_tokens: number;
+  cache_creation_input_tokens?: number;
+  cache_read_input_tokens?: number;
+}
+
+// 根据模型名估算费用（美元/M tokens，含缓存定价）
+function estimateCost(model: string | null | undefined, usage: UsageTokens): number {
+  // 各模型定价（$/M tokens）
+  let inputPrice = 3, outputPrice = 15, cacheWritePrice = 3.75, cacheReadPrice = 0.30;
+  if (model?.includes("opus")) {
+    inputPrice = 15; outputPrice = 75; cacheWritePrice = 18.75; cacheReadPrice = 1.50;
+  } else if (model?.includes("haiku")) {
+    inputPrice = 0.8; outputPrice = 4; cacheWritePrice = 1.00; cacheReadPrice = 0.08;
+  }
+  return (
+    usage.input_tokens * inputPrice +
+    usage.output_tokens * outputPrice +
+    (usage.cache_creation_input_tokens ?? 0) * cacheWritePrice +
+    (usage.cache_read_input_tokens ?? 0) * cacheReadPrice
+  ) / 1_000_000;
+}
+
+function formatCost(usd: number): string {
+  if (usd < 0.001) return `<$0.001`;
+  if (usd < 0.01)  return `$${usd.toFixed(4)}`;
+  return `$${usd.toFixed(3)}`;
+}
+
+function formatTokens(n: number): string {
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
+  return String(n);
+}
+
 interface Props {
   projectId: string;
   sessionId: string;
@@ -23,6 +58,39 @@ export function ConversationDetail({ projectId, sessionId, firstMessage, onClose
 
   // 只展示 user 和 assistant 消息，过滤 progress/snapshot
   const messages = records.filter((r) => r.type === "user" || r.type === "assistant");
+
+  // 计算总 token 和估算费用（含缓存）
+  // 去重：tool_use 链中同一 API 响应产生多条 assistant 记录，parent 也是 assistant，
+  // 每条携带相同 usage，只取链起点（parent uuid 不是 assistant）避免重复计算。
+  const assistantUuids = new Set(
+    records.filter((r) => r.type === "assistant").map((r) => r.uuid)
+  );
+  const tokenStats = records.reduce(
+    (acc, r) => {
+      if (r.type !== "assistant") return acc;
+      // 跳过父节点也是 assistant 的记录（同一 API 调用的后续 tool_use）
+      if (r.parentUuid && assistantUuids.has(r.parentUuid)) return acc;
+      const usage = r.message?.usage;
+      if (usage) {
+        acc.input       += usage.input_tokens;
+        acc.output      += usage.output_tokens;
+        acc.cacheWrite  += usage.cache_creation_input_tokens ?? 0;
+        acc.cacheRead   += usage.cache_read_input_tokens ?? 0;
+        if (!acc.model) acc.model = r.message?.model ?? null;
+      }
+      return acc;
+    },
+    { input: 0, output: 0, cacheWrite: 0, cacheRead: 0, model: null as string | null }
+  );
+  const hasTokens = tokenStats.input + tokenStats.output + tokenStats.cacheWrite + tokenStats.cacheRead > 0;
+  const totalCost = hasTokens
+    ? estimateCost(tokenStats.model, {
+        input_tokens: tokenStats.input,
+        output_tokens: tokenStats.output,
+        cache_creation_input_tokens: tokenStats.cacheWrite,
+        cache_read_input_tokens: tokenStats.cacheRead,
+      })
+    : null;
 
   return (
     <div className="flex flex-col h-full overflow-hidden" style={{ background: "var(--surface)" }}>
@@ -66,11 +134,34 @@ export function ConversationDetail({ projectId, sessionId, firstMessage, onClose
       {/* 底部统计 */}
       {!loading && (
         <div
-          className="px-5 py-2 border-t text-xs font-mono flex gap-4"
+          className="px-5 py-2 border-t text-xs font-mono flex items-center gap-4 flex-wrap"
           style={{ borderColor: "var(--border)", color: "var(--text-tertiary)", background: "var(--surface-2)" }}
         >
           <span>{messages.length} 条消息</span>
-          <span>{records.length} 条记录</span>
+          {totalCost !== null && (
+            <>
+              <span style={{ color: "var(--border)" }}>·</span>
+              <span title={[
+                `输入: ${tokenStats.input}`,
+                `输出: ${tokenStats.output}`,
+                tokenStats.cacheWrite > 0 ? `缓存写入: ${tokenStats.cacheWrite}` : "",
+                tokenStats.cacheRead  > 0 ? `缓存命中: ${tokenStats.cacheRead}` : "",
+              ].filter(Boolean).join(" | ")}>
+                ↑{formatTokens(tokenStats.input)} ↓{formatTokens(tokenStats.output)}
+                {tokenStats.cacheRead > 0 && (
+                  <span style={{ opacity: 0.7 }}> ⚡{formatTokens(tokenStats.cacheRead)}</span>
+                )}
+              </span>
+              <span style={{ color: "var(--border)" }}>·</span>
+              <span
+                className="px-1.5 py-0.5 rounded"
+                style={{ background: "rgba(217,113,57,0.10)", color: "var(--accent)", fontWeight: 500 }}
+                title="按模型官方定价估算（含缓存），仅供参考"
+              >
+                ≈ {formatCost(totalCost)}
+              </span>
+            </>
+          )}
         </div>
       )}
     </div>
@@ -116,6 +207,7 @@ function UserMessage({ record }: { record: ConversationRecord }) {
 function AssistantMessage({ record }: { record: ConversationRecord }) {
   const content = record.message?.content;
   const model = record.message?.model;
+  const usage = record.message?.usage;
   const blocks: ContentBlock[] = typeof content === "string"
     ? [{ type: "text", text: content }]
     : Array.isArray(content) ? content as ContentBlock[] : [];
@@ -136,14 +228,35 @@ function AssistantMessage({ record }: { record: ConversationRecord }) {
         <Bot size={13} style={{ color: "var(--accent)" }} />
       </div>
       <div className="flex-1 space-y-2">
-        {model && (
-          <span
-            className="inline-block font-mono text-xs px-2 py-0.5 rounded"
-            style={{ background: "var(--surface-2)", color: "var(--text-tertiary)", fontSize: "10px" }}
-          >
-            {model.split("-").slice(-2).join("-")}
-          </span>
-        )}
+        <div className="flex items-center gap-2 flex-wrap">
+          {model && (
+            <span
+              className="font-mono text-xs px-2 py-0.5 rounded"
+              style={{ background: "var(--surface-2)", color: "var(--text-tertiary)", fontSize: "10px" }}
+            >
+              {model.split("-").slice(-2).join("-")}
+            </span>
+          )}
+          {usage && (
+            <span
+              className="font-mono text-xs px-2 py-0.5 rounded"
+              style={{ background: "var(--surface-2)", color: "var(--text-tertiary)", fontSize: "10px" }}
+              title={[
+                `输入: ${usage.input_tokens}`,
+                `输出: ${usage.output_tokens}`,
+                usage.cache_creation_input_tokens ? `缓存写入: ${usage.cache_creation_input_tokens}` : "",
+                usage.cache_read_input_tokens ? `缓存命中: ${usage.cache_read_input_tokens}` : "",
+              ].filter(Boolean).join(" | ")}
+            >
+              ↑{formatTokens(usage.input_tokens)} ↓{formatTokens(usage.output_tokens)}
+              {(usage.cache_read_input_tokens ?? 0) > 0 && (
+                <> ⚡{formatTokens(usage.cache_read_input_tokens!)}</>
+              )}
+              {" · "}
+              {formatCost(estimateCost(model, usage))}
+            </span>
+          )}
+        </div>
         {blocks.map((block, i) => (
           <MessageBlock key={i} block={block} />
         ))}

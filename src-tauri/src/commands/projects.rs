@@ -62,6 +62,14 @@ pub struct ConversationMeta {
     pub message_count: usize,
     pub started_at: Option<String>,
     pub model: Option<String>,
+    /// 累计输入 token（来自 message.usage.input_tokens）
+    pub total_input_tokens: u64,
+    /// 累计输出 token（来自 message.usage.output_tokens）
+    pub total_output_tokens: u64,
+    /// 累计缓存写入 token（来自 message.usage.cache_creation_input_tokens）
+    pub total_cache_write_tokens: u64,
+    /// 累计缓存命中 token（来自 message.usage.cache_read_input_tokens）
+    pub total_cache_read_tokens: u64,
 }
 
 /// 列出所有项目（扫描 ~/.claude/projects/）
@@ -206,24 +214,50 @@ pub fn list_sessions(project_id: String) -> Result<Vec<ConversationMeta>, String
             .map(|s| s.to_string_lossy().to_string())
             .unwrap_or_default();
 
-        // 流式读取，提取元信息后早退（message_count 需要计所有行）
-        let file = match fs::File::open(&path) {
-            Ok(f) => f,
-            Err(_) => continue,
-        };
         let mut first_message: Option<String> = None;
         let mut message_count = 0usize;
         let mut started_at: Option<String> = None;
         let mut model: Option<String> = None;
+        let mut total_input_tokens: u64 = 0;
+        let mut total_output_tokens: u64 = 0;
+        let mut total_cache_write_tokens: u64 = 0;
+        let mut total_cache_read_tokens: u64 = 0;
         // 是否已收集到所有需要的元信息（不含 message_count，因需遍历全文）
         let mut meta_done = false;
 
-        for line in BufReader::new(file).lines().flatten() {
+        // 第一遍：收集所有 assistant 的 uuid，用于去重判断
+        // tool_use 链：同一 API 响应产生多条 assistant 记录（parent 也是 assistant），
+        // 每条都携带相同 usage，只计 parent 不是 assistant 的那条（链的起点）。
+        let content = match fs::read_to_string(&path) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+        let assistant_uuids: std::collections::HashSet<String> = content
+            .lines()
+            .filter(|l| !l.trim().is_empty())
+            .filter_map(|l| serde_json::from_str::<serde_json::Value>(l).ok())
+            .filter(|v| v["type"] == "assistant")
+            .filter_map(|v| v["uuid"].as_str().map(|s| s.to_string()))
+            .collect();
+
+        for line in content.lines() {
             if line.trim().is_empty() {
                 continue;
             }
-            if let Ok(record) = serde_json::from_str::<serde_json::Value>(&line) {
+            if let Ok(record) = serde_json::from_str::<serde_json::Value>(line) {
                 message_count += 1;
+
+                // 只计链起点（parent 不是 assistant），避免 tool_use 链重复累加同一 usage
+                if record["type"] == "assistant" {
+                    let parent_uuid = record["parentUuid"].as_str().unwrap_or("");
+                    if !assistant_uuids.contains(parent_uuid) {
+                        let usage = &record["message"]["usage"];
+                        total_input_tokens       += usage["input_tokens"].as_u64().unwrap_or(0);
+                        total_output_tokens      += usage["output_tokens"].as_u64().unwrap_or(0);
+                        total_cache_write_tokens += usage["cache_creation_input_tokens"].as_u64().unwrap_or(0);
+                        total_cache_read_tokens  += usage["cache_read_input_tokens"].as_u64().unwrap_or(0);
+                    }
+                }
 
                 if !meta_done {
                     if started_at.is_none() {
@@ -270,6 +304,10 @@ pub fn list_sessions(project_id: String) -> Result<Vec<ConversationMeta>, String
             message_count,
             started_at,
             model,
+            total_input_tokens,
+            total_output_tokens,
+            total_cache_write_tokens,
+            total_cache_read_tokens,
         });
     }
 

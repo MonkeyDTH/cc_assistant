@@ -23,6 +23,10 @@ export interface ConversationMeta {
   message_count: number;
   started_at: string | null;
   model: string | null;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  total_cache_write_tokens: number;
+  total_cache_read_tokens: number;
 }
 
 // ——— Settings ———
@@ -114,7 +118,12 @@ export interface ConversationRecord {
     content?: string | ContentBlock[];
     model?: string;
     stop_reason?: string;
-    usage?: { input_tokens: number; output_tokens: number };
+    usage?: {
+      input_tokens: number;
+      output_tokens: number;
+      cache_creation_input_tokens?: number;
+      cache_read_input_tokens?: number;
+    };
   };
   // progress 字段
   toolUseID?: string;

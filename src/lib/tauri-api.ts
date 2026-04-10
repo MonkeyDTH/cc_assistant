@@ -80,6 +80,10 @@ function mockInvoke<T>(cmd: string, _args?: Record<string, unknown>): T {
         message_count: 47,
         started_at: now,
         model: "claude-sonnet-4-6",
+        total_input_tokens: 128400,
+        total_output_tokens: 32100,
+        total_cache_write_tokens: 139800,
+        total_cache_read_tokens: 1800000,
       },
       {
         id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
@@ -88,6 +92,10 @@ function mockInvoke<T>(cmd: string, _args?: Record<string, unknown>): T {
         message_count: 23,
         started_at: new Date(Date.now() - 7200000).toISOString(),
         model: "claude-opus-4-6",
+        total_input_tokens: 54200,
+        total_output_tokens: 18900,
+        total_cache_write_tokens: 0,
+        total_cache_read_tokens: 320000,
       },
     ] as ConversationMeta[],
 
