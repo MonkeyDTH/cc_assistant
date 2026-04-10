@@ -5,7 +5,53 @@ import { SaveStatusBadge } from "@/components/ui/SaveStatusBadge";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
 import type { HooksConfig, HookMatcher, HookEntry } from "@/lib/types";
 
-const HOOK_EVENTS = ["Notification", "Stop", "PreToolUse", "PostToolUse", "SubagentStop"];
+interface HookGroup {
+  label: string;
+  events: string[];
+}
+
+const HOOK_GROUPS: HookGroup[] = [
+  { label: "会话生命周期", events: ["SessionStart", "SessionEnd", "InstructionsLoaded"] },
+  { label: "用户交互", events: ["UserPromptSubmit", "AskUserQuestion"] },
+  { label: "工具调用", events: ["PreToolUse", "PostToolUse", "PostToolUseFailure", "PermissionRequest", "PermissionDenied"] },
+  { label: "代理与任务", events: ["SubagentStart", "SubagentStop", "TaskCreated", "TaskCompleted", "TeammateIdle"] },
+  { label: "响应结束", events: ["Stop", "StopFailure"] },
+  { label: "系统事件", events: ["Notification", "ConfigChange", "CwdChanged", "FileChanged", "PreCompact", "PostCompact"] },
+  { label: "MCP 工具", events: ["Elicitation", "ElicitationResult"] },
+  { label: "Worktree", events: ["WorktreeCreate", "WorktreeRemove"] },
+];
+
+const HOOK_EVENTS = HOOK_GROUPS.flatMap((g) => g.events);
+
+const HOOK_EVENT_DESCRIPTIONS: Record<string, string> = {
+  SessionStart: "会话开始或恢复时触发",
+  SessionEnd: "会话结束时触发",
+  InstructionsLoaded: "CLAUDE.md / rules 文件加载到上下文时触发",
+  UserPromptSubmit: "用户提交 prompt、Claude 处理前触发",
+  AskUserQuestion: "Claude 弹出多选问题等待用户输入时触发",
+  PreToolUse: "每次工具调用前触发，可阻断执行",
+  PostToolUse: "工具调用成功后触发",
+  PostToolUseFailure: "工具调用失败后触发",
+  PermissionRequest: "权限确认弹窗出现时触发",
+  PermissionDenied: "工具被自动拒绝时触发",
+  SubagentStart: "子代理启动时触发",
+  SubagentStop: "子代理完成任务时触发",
+  TaskCreated: "TaskCreate 创建任务时触发",
+  TaskCompleted: "任务标记完成时触发",
+  TeammateIdle: "团队代理即将闲置时触发",
+  Stop: "Claude 完成响应、停止时触发",
+  StopFailure: "因 API 错误导致轮次结束时触发",
+  Notification: "Claude 需要提醒用户时触发",
+  ConfigChange: "会话中配置文件变更时触发",
+  CwdChanged: "工作目录切换时触发",
+  FileChanged: "被监视的文件在磁盘发生变化时触发",
+  PreCompact: "上下文压缩前触发",
+  PostCompact: "上下文压缩完成后触发",
+  Elicitation: "MCP 服务器在工具调用中请求用户输入时触发",
+  ElicitationResult: "用户响应 MCP elicitation 后触发",
+  WorktreeCreate: "创建 worktree 时触发",
+  WorktreeRemove: "移除 worktree 时触发",
+};
 
 interface LocalHookRule extends HookMatcher {
   _id: string;
@@ -42,6 +88,10 @@ export function HooksPage() {
   const [hooks, setHooks] = useState<LocalHooks>(toLocal({}));
   const [originalHooks, setOriginalHooks] = useState<LocalHooks>(toLocal({}));
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  // 分组折叠状态，key 为 group label，默认全部展开
+  const [groupExpanded, setGroupExpanded] = useState<Record<string, boolean>>(
+    () => Object.fromEntries(HOOK_GROUPS.map((g) => [g.label, true]))
+  );
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saved" | "error">("idle");
@@ -73,6 +123,10 @@ export function HooksPage() {
 
   function toggleEvent(event: string) {
     setExpanded((prev) => ({ ...prev, [event]: !prev[event] }));
+  }
+
+  function toggleGroup(label: string) {
+    setGroupExpanded((prev) => ({ ...prev, [label]: !prev[label] }));
   }
 
   function addRule(event: string) {
@@ -156,138 +210,179 @@ export function HooksPage() {
         </button>
       </header>
 
-      <div className="flex-1 overflow-y-auto px-8 py-6 space-y-3">
+      <div className="flex-1 overflow-y-auto px-8 py-6 space-y-4">
         {loading ? (
           <LoadingSkeleton count={3} height="h-14" />
         ) : (
-          HOOK_EVENTS.map((event) => {
-            const rules = hooks[event] ?? [];
-            const isOpen = !!expanded[event];
-            const hasRules = rules.length > 0;
+          HOOK_GROUPS.map((group) => {
+            const isGroupOpen = !!groupExpanded[group.label];
+            const totalRules = group.events.reduce((sum, e) => sum + (hooks[e]?.length ?? 0), 0);
 
             return (
-              <div
-                key={event}
-                className="rounded-xl overflow-hidden"
-                style={{
-                  border: `1px solid ${hasRules ? "rgba(217,113,57,0.2)" : "var(--border)"}`,
-                  background: "var(--surface-card)",
-                }}
-              >
+              <div key={group.label}>
+                {/* 分组标题行 */}
                 <button
-                  className="w-full px-5 py-4 flex items-center gap-3 text-left"
-                  onClick={() => toggleEvent(event)}
-                  style={{ background: isOpen ? "rgba(217,113,57,0.03)" : "transparent" }}
+                  className="w-full flex items-center gap-2 mb-2 px-1 py-1 rounded-lg transition-all text-left"
+                  onClick={() => toggleGroup(group.label)}
+                  style={{ background: "transparent" }}
                 >
-                  <GitBranch size={15} style={{ color: hasRules ? "var(--accent)" : "var(--text-tertiary)" }} />
-                  <span className="font-mono font-medium text-sm flex-1" style={{ color: "var(--text-primary)" }}>
-                    {event}
+                  {isGroupOpen
+                    ? <ChevronDown size={13} style={{ color: "var(--text-tertiary)" }} />
+                    : <ChevronRight size={13} style={{ color: "var(--text-tertiary)" }} />
+                  }
+                  <span className="text-xs font-semibold tracking-wide uppercase" style={{ color: "var(--text-tertiary)" }}>
+                    {group.label}
                   </span>
-                  {hasRules && (
+                  {totalRules > 0 && (
                     <span
-                      className="text-xs px-2 py-0.5 rounded-full font-mono"
+                      className="text-xs px-1.5 py-0.5 rounded-full font-mono"
                       style={{ background: "rgba(217,113,57,0.12)", color: "var(--accent)" }}
                     >
-                      {rules.length} 条规则
+                      {totalRules}
                     </span>
                   )}
-                  {isOpen
-                    ? <ChevronDown size={14} style={{ color: "var(--text-tertiary)" }} />
-                    : <ChevronRight size={14} style={{ color: "var(--text-tertiary)" }} />
-                  }
+                  <div className="flex-1 h-px ml-1" style={{ background: "var(--border)" }} />
                 </button>
 
-                {isOpen && (
-                  <div className="border-t px-5 py-4 space-y-3" style={{ borderColor: "var(--border)" }}>
-                    {rules.length === 0 && (
-                      <p className="text-sm text-center py-3" style={{ color: "var(--text-tertiary)" }}>
-                        暂无规则
-                      </p>
-                    )}
+                {/* 分组内的事件列表 */}
+                {isGroupOpen && (
+                  <div className="space-y-2 pl-2">
+                    {group.events.map((event) => {
+                      const rules = hooks[event] ?? [];
+                      const isOpen = !!expanded[event];
+                      const hasRules = rules.length > 0;
 
-                    {rules.map((rule) => (
-                      <div
-                        key={rule._id}
-                        className="rounded-lg p-4 space-y-3"
-                        style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}
-                      >
-                        <div>
-                          <label className="block text-xs mb-1.5" style={{ color: "var(--text-tertiary)" }}>
-                            匹配规则（matcher，可选）
-                          </label>
-                          <input
-                            type="text"
-                            value={rule.matcher ?? ""}
-                            onChange={(e) => updateMatcher(event, rule._id, e.target.value)}
-                            placeholder="如：Bash, Read(*) 等，留空表示匹配所有"
-                            className="w-full font-mono text-xs rounded-lg px-3 py-2 outline-none"
-                            style={{
-                              background: "var(--surface-card)",
-                              color: "var(--text-primary)",
-                              border: "1px solid var(--border)",
-                              fontSize: "12px",
-                            }}
-                          />
+                      return (
+                        <div
+                          key={event}
+                          className="rounded-xl overflow-hidden"
+                          style={{
+                            border: `1px solid ${hasRules ? "rgba(217,113,57,0.2)" : "var(--border)"}`,
+                            background: "var(--surface-card)",
+                          }}
+                        >
+                          <button
+                            className="w-full px-5 py-3 flex items-center gap-3 text-left"
+                            onClick={() => toggleEvent(event)}
+                            style={{ background: isOpen ? "rgba(217,113,57,0.03)" : "transparent" }}
+                          >
+                            <GitBranch size={14} style={{ color: hasRules ? "var(--accent)" : "var(--text-tertiary)" }} />
+                            <span className="font-mono font-medium text-sm" style={{ color: "var(--text-primary)" }}>
+                              {event}
+                            </span>
+                            <span className="text-xs flex-1" style={{ color: "var(--text-tertiary)" }}>
+                              {HOOK_EVENT_DESCRIPTIONS[event]}
+                            </span>
+                            {hasRules && (
+                              <span
+                                className="text-xs px-2 py-0.5 rounded-full font-mono"
+                                style={{ background: "rgba(217,113,57,0.12)", color: "var(--accent)" }}
+                              >
+                                {rules.length} 条规则
+                              </span>
+                            )}
+                            {isOpen
+                              ? <ChevronDown size={14} style={{ color: "var(--text-tertiary)" }} />
+                              : <ChevronRight size={14} style={{ color: "var(--text-tertiary)" }} />
+                            }
+                          </button>
+
+                          {isOpen && (
+                            <div className="border-t px-5 py-4 space-y-3" style={{ borderColor: "var(--border)" }}>
+                              {rules.length === 0 && (
+                                <p className="text-sm text-center py-3" style={{ color: "var(--text-tertiary)" }}>
+                                  暂无规则
+                                </p>
+                              )}
+
+                              {rules.map((rule) => (
+                                <div
+                                  key={rule._id}
+                                  className="rounded-lg p-4 space-y-3"
+                                  style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}
+                                >
+                                  <div>
+                                    <label className="block text-xs mb-1.5" style={{ color: "var(--text-tertiary)" }}>
+                                      匹配规则（matcher，可选）
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={rule.matcher ?? ""}
+                                      onChange={(e) => updateMatcher(event, rule._id, e.target.value)}
+                                      placeholder="如：Bash, Read(*) 等，留空表示匹配所有"
+                                      className="w-full font-mono text-xs rounded-lg px-3 py-2 outline-none"
+                                      style={{
+                                        background: "var(--surface-card)",
+                                        color: "var(--text-primary)",
+                                        border: "1px solid var(--border)",
+                                        fontSize: "12px",
+                                      }}
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <div className="flex items-center justify-between mb-1.5">
+                                      <label className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+                                        执行命令
+                                      </label>
+                                      <button onClick={() => removeRule(event, rule._id)}>
+                                        <Trash2 size={12} style={{ color: "#ef4444" }} />
+                                      </button>
+                                    </div>
+                                    <textarea
+                                      value={rule.hooks[0]?.command ?? ""}
+                                      onChange={(e) => updateEntry(event, rule._id, "command", e.target.value)}
+                                      rows={2}
+                                      className="w-full font-mono text-xs rounded-lg px-3 py-2 outline-none resize-none"
+                                      style={{
+                                        background: "var(--editor-bg)",
+                                        color: "var(--editor-text)",
+                                        border: "1px solid rgba(255,255,255,0.08)",
+                                        fontSize: "12px",
+                                        lineHeight: "1.6",
+                                      }}
+                                      placeholder='bash -c "echo hello"'
+                                    />
+                                  </div>
+
+                                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                                    <input
+                                      type="checkbox"
+                                      checked={rule.hooks[0]?.async ?? false}
+                                      onChange={(e) => updateEntry(event, rule._id, "async", e.target.checked)}
+                                      style={{ accentColor: "var(--accent)", width: "14px", height: "14px" }}
+                                    />
+                                    <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                                      异步执行（不阻塞 Claude）
+                                    </span>
+                                  </label>
+                                </div>
+                              ))}
+
+                              <button
+                                onClick={() => addRule(event)}
+                                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-medium transition-all"
+                                style={{
+                                  border: "1px dashed var(--border-strong)",
+                                  color: "var(--text-secondary)",
+                                  background: "transparent",
+                                }}
+                                onMouseEnter={(e) => {
+                                  (e.currentTarget as HTMLElement).style.borderColor = "var(--accent)";
+                                  (e.currentTarget as HTMLElement).style.color = "var(--accent)";
+                                }}
+                                onMouseLeave={(e) => {
+                                  (e.currentTarget as HTMLElement).style.borderColor = "var(--border-strong)";
+                                  (e.currentTarget as HTMLElement).style.color = "var(--text-secondary)";
+                                }}
+                              >
+                                <Plus size={12} /> 添加规则
+                              </button>
+                            </div>
+                          )}
                         </div>
-
-                        <div>
-                          <div className="flex items-center justify-between mb-1.5">
-                            <label className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-                              执行命令
-                            </label>
-                            <button onClick={() => removeRule(event, rule._id)}>
-                              <Trash2 size={12} style={{ color: "#ef4444" }} />
-                            </button>
-                          </div>
-                          <textarea
-                            value={rule.hooks[0]?.command ?? ""}
-                            onChange={(e) => updateEntry(event, rule._id, "command", e.target.value)}
-                            rows={2}
-                            className="w-full font-mono text-xs rounded-lg px-3 py-2 outline-none resize-none"
-                            style={{
-                              background: "var(--editor-bg)",
-                              color: "var(--editor-text)",
-                              border: "1px solid rgba(255,255,255,0.08)",
-                              fontSize: "12px",
-                              lineHeight: "1.6",
-                            }}
-                            placeholder='bash -c "echo hello"'
-                          />
-                        </div>
-
-                        <label className="flex items-center gap-2 cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={rule.hooks[0]?.async ?? false}
-                            onChange={(e) => updateEntry(event, rule._id, "async", e.target.checked)}
-                            style={{ accentColor: "var(--accent)", width: "14px", height: "14px" }}
-                          />
-                          <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
-                            异步执行（不阻塞 Claude）
-                          </span>
-                        </label>
-                      </div>
-                    ))}
-
-                    <button
-                      onClick={() => addRule(event)}
-                      className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-medium transition-all"
-                      style={{
-                        border: "1px dashed var(--border-strong)",
-                        color: "var(--text-secondary)",
-                        background: "transparent",
-                      }}
-                      onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLElement).style.borderColor = "var(--accent)";
-                        (e.currentTarget as HTMLElement).style.color = "var(--accent)";
-                      }}
-                      onMouseLeave={(e) => {
-                        (e.currentTarget as HTMLElement).style.borderColor = "var(--border-strong)";
-                        (e.currentTarget as HTMLElement).style.color = "var(--text-secondary)";
-                      }}
-                    >
-                      <Plus size={12} /> 添加规则
-                    </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
