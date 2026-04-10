@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { MessageSquare, Clock, ChevronRight, Search, X, MonitorUp, Trash2 } from "lucide-react";
+import { MessageSquare, Clock, ChevronRight, Search, X, MonitorUp, Trash2, RotateCcw } from "lucide-react";
 import { useAppStore } from "@/stores/app-store";
 import { api } from "@/lib/tauri-api";
 
@@ -192,6 +192,7 @@ export function SessionsPage() {
                       <SessionItem
                         key={session.id}
                         session={session}
+                        projectPath={currentProject?.path ?? ""}
                         isSelected={selectedSession?.id === session.id}
                         isActive={activeIds.has(session.id)}
                         activePid={activeSession?.pid ?? null}
@@ -239,8 +240,9 @@ export function SessionsPage() {
   );
 }
 
-function SessionItem({ session, isSelected, isActive, activePid, activeCwd, animDelay, onClick, onDelete }: {
+function SessionItem({ session, projectPath, isSelected, isActive, activePid, activeCwd, animDelay, onClick, onDelete }: {
   session: ConversationMeta;
+  projectPath: string;
   isSelected: boolean;
   isActive: boolean;
   activePid: number | null;
@@ -339,6 +341,31 @@ function SessionItem({ session, isSelected, isActive, activePid, activeCwd, anim
           }}
         >
           <MonitorUp size={14} />
+        </button>
+      )}
+
+      {/* 非活跃会话：恢复会话按钮（hover 显示） */}
+      {!isActive && (
+        <button
+          title="在终端中恢复此会话"
+          onClick={(e) => {
+            e.stopPropagation();
+            api.resumeSession(projectPath, session.id).catch((err: unknown) => {
+              console.warn("恢复会话失败:", err);
+            });
+          }}
+          className="flex-shrink-0 px-3 flex items-center border-l transition-all opacity-0 group-hover:opacity-100"
+          style={{ borderColor: "var(--border)", color: "var(--text-tertiary)" }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = "var(--accent)";
+            e.currentTarget.style.background = "rgba(217,113,57,0.08)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = "var(--text-tertiary)";
+            e.currentTarget.style.background = "transparent";
+          }}
+        >
+          <RotateCcw size={14} />
         </button>
       )}
 

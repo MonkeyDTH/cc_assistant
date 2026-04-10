@@ -222,6 +222,8 @@ export const api = {
     invoke<ConversationRecord[]>("read_conversation", { projectId, sessionId }),
   deleteSession: (projectId: string, sessionId: string) =>
     invoke<void>("delete_session", { projectId, sessionId }),
+  resumeSession: (projectPath: string, sessionId: string) =>
+    invoke<void>("resume_session", { projectPath, sessionId }),
 
   // Memory
   listMemories: (projectId?: string | null) =>

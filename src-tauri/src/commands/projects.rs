@@ -456,6 +456,93 @@ pub fn activate_session_window(pid: u32, cwd: String) -> Result<(), String> {
     }
 }
 
+/// 在新终端窗口中恢复指定会话
+///
+/// 优先使用 Windows Terminal（wt），回退到 PowerShell 新窗口。
+/// 执行：cd <project_path> && claude -r <session_id>
+#[tauri::command]
+pub fn resume_session(project_path: String, session_id: String) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NEW_CONSOLE: u32 = 0x00000010;
+
+        // 注意：不能在传给 wt 的命令中使用 `;`，
+        // 因为 Windows Terminal 会把 `;` 解析为多标签分隔符。
+        // wt 的 `-d` 已经设置起始目录，只需直接执行 claude -r。
+        let claude_cmd = format!("claude -r {}", session_id);
+
+        // 优先尝试 Windows Terminal（-d 设置工作目录，无需 Set-Location）
+        let wt_ok = std::process::Command::new("wt")
+            .args([
+                "-d", &project_path,
+                "--", "powershell", "-NoExit", "-Command", &claude_cmd,
+            ])
+            .spawn()
+            .is_ok();
+
+        if !wt_ok {
+            // 回退：直接新建 PowerShell 窗口，通过 current_dir 设置工作目录
+            std::process::Command::new("powershell")
+                .args(["-NoExit", "-Command", &claude_cmd])
+                .current_dir(&project_path)
+                .creation_flags(CREATE_NEW_CONSOLE)
+                .spawn()
+                .map_err(|e| e.to_string())?;
+        }
+
+        Ok(())
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        // macOS/Linux：用 open -a Terminal 或 gnome-terminal
+        let sh_cmd = format!(
+            "cd '{}' && claude -r {}",
+            project_path.replace('\'', "'\\''"),
+            session_id
+        );
+
+        #[cfg(target_os = "macos")]
+        {
+            std::process::Command::new("open")
+                .args(["-a", "Terminal", &project_path])
+                .spawn()
+                .map_err(|e| e.to_string())?;
+            // macOS 无法直接注入命令到 Terminal.app，先 cd 到目录后用户手动执行
+            // 更佳方案可使用 osascript，此处保持简单
+            let _ = sh_cmd;
+        }
+
+        #[cfg(target_os = "linux")]
+        {
+            // 依次尝试常见终端
+            let terminals = ["gnome-terminal", "xterm", "konsole"];
+            let mut launched = false;
+            for term in terminals {
+                let result = if term == "gnome-terminal" {
+                    std::process::Command::new(term)
+                        .args(["--", "bash", "-c", &format!("{}; exec bash", sh_cmd)])
+                        .spawn()
+                } else {
+                    std::process::Command::new(term)
+                        .args(["-e", &format!("bash -c '{}; exec bash'", sh_cmd)])
+                        .spawn()
+                };
+                if result.is_ok() {
+                    launched = true;
+                    break;
+                }
+            }
+            if !launched {
+                return Err("未找到可用的终端模拟器".to_string());
+            }
+        }
+
+        Ok(())
+    }
+}
+
 /// 删除指定会话（删除对应的 .jsonl 文件）
 #[tauri::command]
 pub fn delete_session(project_id: String, session_id: String) -> Result<(), String> {

@@ -12,7 +12,7 @@ interface HookGroup {
 
 const HOOK_GROUPS: HookGroup[] = [
   { label: "会话生命周期", events: ["SessionStart", "SessionEnd", "InstructionsLoaded"] },
-  { label: "用户交互", events: ["UserPromptSubmit", "AskUserQuestion"] },
+  { label: "用户交互", events: ["UserPromptSubmit"] },
   { label: "工具调用", events: ["PreToolUse", "PostToolUse", "PostToolUseFailure", "PermissionRequest", "PermissionDenied"] },
   { label: "代理与任务", events: ["SubagentStart", "SubagentStop", "TaskCreated", "TaskCompleted", "TeammateIdle"] },
   { label: "响应结束", events: ["Stop", "StopFailure"] },
@@ -28,7 +28,6 @@ const HOOK_EVENT_DESCRIPTIONS: Record<string, string> = {
   SessionEnd: "会话结束时触发",
   InstructionsLoaded: "CLAUDE.md / rules 文件加载到上下文时触发",
   UserPromptSubmit: "用户提交 prompt、Claude 处理前触发",
-  AskUserQuestion: "Claude 弹出多选问题等待用户输入时触发",
   PreToolUse: "每次工具调用前触发，可阻断执行",
   PostToolUse: "工具调用成功后触发",
   PostToolUseFailure: "工具调用失败后触发",
