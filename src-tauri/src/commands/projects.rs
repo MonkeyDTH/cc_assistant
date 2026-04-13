@@ -596,6 +596,17 @@ pub fn delete_session(project_id: String, session_id: String) -> Result<(), Stri
     }
 }
 
+/// 删除整个项目（删除 ~/.claude/projects/<project_id>/ 目录及其所有会话文件）
+#[tauri::command]
+pub fn delete_project(project_id: String) -> Result<(), String> {
+    let project_dir = claude_dir().join("projects").join(&project_id);
+    match fs::remove_dir_all(&project_dir) {
+        Ok(_) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
 /// 读取完整会话内容（返回原始 JSONL 行数组）
 #[tauri::command]
 pub fn read_conversation(

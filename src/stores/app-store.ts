@@ -35,6 +35,9 @@ interface AppState {
   saveProfiles: (config: ProfilesConfig) => Promise<void>;
   switchProfile: (profileId: string) => Promise<void>;
 
+  // 删除项目
+  deleteProject: (projectId: string) => Promise<void>;
+
   // 派生选择器（不存入 store state，仅作运行时函数）
   isProjectActive: (projectId: string) => boolean;
 }
@@ -107,6 +110,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (current) {
       set({ profilesConfig: { ...current, activeProfileId: profileId } });
     }
+  },
+
+  // 删除项目：删除后从列表移除
+  deleteProject: async (projectId: string) => {
+    await api.deleteProject(projectId);
+    set((state) => ({ projects: state.projects.filter((p) => p.id !== projectId) }));
   },
 
   // 根据活跃会话判断某项目是否正在运行

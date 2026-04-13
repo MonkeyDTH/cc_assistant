@@ -13,6 +13,7 @@ export function Dashboard() {
     fetchProjects,
     setActiveNav,
     setSelectedProject,
+    deleteProject,
   } = useAppStore();
 
   function handleSelectSessions(projectId: string) {
@@ -139,6 +140,7 @@ export function Dashboard() {
                 activeSessions={activeSessions}
                 onSelectSessions={() => handleSelectSessions(project.id)}
                 onEditPrompt={() => handleEditPrompt(project.id)}
+                onDeleteProject={() => deleteProject(project.id)}
                 style={{ animationDelay: `${i * 60}ms` }}
               />
             ))}
