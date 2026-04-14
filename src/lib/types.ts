@@ -180,6 +180,12 @@ export interface ProfilesConfig {
   profiles: ApiProfile[];
 }
 
+// ——— App 偏好设置（CC Assistant 自身，与 Claude Code settings.json 无关）———
+
+export interface AppConfig {
+  minimize_to_tray: boolean;
+}
+
 // ——— UI 状态 ———
 
 export type NavItem =
@@ -192,4 +198,5 @@ export type NavItem =
   | "sessions"
   | "model"
   | "permission"
-  | "profiles";
+  | "profiles"
+  | "preferences";

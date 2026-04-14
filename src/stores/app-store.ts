@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Project, ActiveSession, Settings, NavItem, ProfilesConfig } from "@/lib/types";
+import type { Project, ActiveSession, Settings, NavItem, ProfilesConfig, AppConfig } from "@/lib/types";
 import { api } from "@/lib/tauri-api";
 import { encodeCwdToProjectId } from "@/lib/utils";
 
@@ -34,6 +34,12 @@ interface AppState {
   fetchProfiles: () => Promise<void>;
   saveProfiles: (config: ProfilesConfig) => Promise<void>;
   switchProfile: (profileId: string) => Promise<void>;
+
+  // App 偏好设置
+  appConfig: AppConfig | null;
+  appConfigLoading: boolean;
+  fetchAppConfig: () => Promise<void>;
+  updateAppConfig: (config: AppConfig) => Promise<void>;
 
   // 删除项目
   deleteProject: (projectId: string) => Promise<void>;
@@ -110,6 +116,23 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (current) {
       set({ profilesConfig: { ...current, activeProfileId: profileId } });
     }
+  },
+
+  // App 偏好设置
+  appConfig: null,
+  appConfigLoading: false,
+  fetchAppConfig: async () => {
+    set({ appConfigLoading: true });
+    try {
+      const appConfig = await api.readAppConfig();
+      set({ appConfig });
+    } finally {
+      set({ appConfigLoading: false });
+    }
+  },
+  updateAppConfig: async (config) => {
+    await api.writeAppConfig(config);
+    set({ appConfig: config });
   },
 
   // 删除项目：删除后从列表移除

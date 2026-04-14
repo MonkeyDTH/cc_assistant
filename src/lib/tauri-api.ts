@@ -12,6 +12,7 @@ import type {
   Marketplace,
   MarketplacePlugin,
   ProfilesConfig,
+  AppConfig,
 } from "./types";
 
 const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -151,6 +152,8 @@ function mockInvoke<T>(cmd: string, _args?: Record<string, unknown>): T {
       ANTHROPIC_DEFAULT_HAIKU_MODEL:  "claude-haiku-4-5",
     } as Record<string, string>,
 
+    read_app_config: { minimize_to_tray: false } as AppConfig,
+
     list_marketplaces: [
       { id: "claude-plugins-official", source: { source: "github", repo: "anthropics/claude-plugins-official" }, install_location: "", last_updated: new Date().toISOString() },
     ] as Marketplace[],
@@ -287,6 +290,10 @@ export const api = {
   readProfiles: () => invoke<ProfilesConfig>("read_profiles"),
   writeProfiles: (config: ProfilesConfig) => invoke<void>("write_profiles", { config }),
   activateProfile: (profileId: string) => invoke<void>("activate_profile", { profileId }),
+
+  // App 偏好设置
+  readAppConfig: () => invoke<AppConfig>("read_app_config"),
+  writeAppConfig: (config: AppConfig) => invoke<void>("write_app_config", { config }),
 
   // Prompt
   readGlobalClaudeMd: () => invoke<string>("read_global_claude_md"),

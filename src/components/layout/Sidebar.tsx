@@ -36,9 +36,10 @@ const NAV_ITEMS: NavEntry[] = [
   { id: "hooks",     label: "Hooks",    icon: <GitBranch size={16} />,        group: "配置" },
   { id: "skills",    label: "Skills",   icon: <Zap size={16} />,              group: "配置" },
   { id: "plugins",    label: "Plugins",  icon: <Puzzle size={16} />,  group: "配置" },
-  { id: "model",      label: "模型",        icon: <Cpu size={16} />,      group: "系统" },
-  { id: "permission", label: "权限",        icon: <Shield size={16} />,   group: "系统" },
-  { id: "profiles",   label: "API Profiles", icon: <KeyRound size={16} />, group: "系统" },
+  { id: "model",       label: "模型",        icon: <Cpu size={16} />,      group: "系统" },
+  { id: "permission",  label: "权限",        icon: <Shield size={16} />,   group: "系统" },
+  { id: "profiles",    label: "API Profiles", icon: <KeyRound size={16} />, group: "系统" },
+  { id: "preferences", label: "应用偏好",    icon: <Settings size={16} />, group: "系统" },
 ];
 
 const GROUPS = ["概览", "配置", "系统"];
