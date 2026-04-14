@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CC Assistant — Claude Code 桌面管理面板</title>
+  <meta name="description" content="可视化管理 Claude Code 的配置、会话、Skills、Plugins、Hooks 和 Memory，无需手动编辑 JSON/Markdown 文件。" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    body { font-family: 'Inter', system-ui, sans-serif; }
+
+    /* 渐变背景 */
+    .hero-bg {
+      background: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(139, 92, 246, 0.15), transparent),
+                  radial-gradient(ellipse 60% 40% at 80% 80%, rgba(59, 130, 246, 0.08), transparent);
+    }
+
+    /* 功能卡片悬停效果 */
+    .feature-card {
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .feature-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(139, 92, 246, 0.12);
+    }
+
+    /* 渐变边框 */
+    .gradient-border {
+      position: relative;
+    }
+    .gradient-border::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      padding: 1px;
+      background: linear-gradient(135deg, rgba(139,92,246,0.4), rgba(59,130,246,0.2));
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
+    }
+
+    /* 下载按钮发光 */
+    .download-btn {
+      box-shadow: 0 0 24px rgba(139, 92, 246, 0.4);
+      transition: box-shadow 0.2s, transform 0.2s;
+    }
+    .download-btn:hover {
+      box-shadow: 0 0 36px rgba(139, 92, 246, 0.6);
+      transform: translateY(-1px);
+    }
+
+    /* 模糊装饰圆 */
+    .blob {
+      filter: blur(80px);
+      opacity: 0.3;
+    }
+  </style>
+</head>
+<body class="bg-gray-950 text-gray-100 antialiased">
+
+  <!-- 顶部导航 -->
+  <header class="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-gray-950/80 backdrop-blur-sm">
+    <div class="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <!-- Logo 图标 -->
+        <div class="w-7 h-7 rounded-lg bg-violet-600 flex items-center justify-center text-white text-xs font-bold">CC</div>
+        <span class="font-semibold text-sm text-white">CC Assistant</span>
+      </div>
+      <nav class="flex items-center gap-6 text-sm text-gray-400">
+        <a href="#features" class="hover:text-white transition-colors">功能</a>
+        <a href="https://github.com/MonkeyDTH/cc_assistant/releases/latest" class="hover:text-white transition-colors">下载</a>
+        <a href="https://github.com/MonkeyDTH/cc_assistant" target="_blank" rel="noopener"
+           class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/20 hover:text-white transition-colors">
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+          </svg>
+          GitHub
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Hero 区域 -->
+  <section class="hero-bg relative min-h-screen flex items-center justify-center overflow-hidden pt-14">
+    <!-- 装饰光晕 -->
+    <div class="blob absolute top-1/4 left-1/4 w-96 h-96 bg-violet-600 rounded-full -translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
+    <div class="blob absolute bottom-1/4 right-1/4 w-64 h-64 bg-blue-600 rounded-full pointer-events-none"></div>
+
+    <div class="relative max-w-3xl mx-auto px-6 text-center">
+      <!-- 徽章 -->
+      <div class="inline-flex items-center gap-2 px-3 py-1 mb-8 rounded-full border border-violet-500/30 bg-violet-500/10 text-violet-300 text-xs font-medium">
+        <span class="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse"></span>
+        v0.6.2 现已发布
+      </div>
+
+      <!-- 主标题 -->
+      <h1 class="text-5xl sm:text-6xl font-bold tracking-tight mb-6 leading-tight">
+        <span class="text-white">Claude Code</span>
+        <br />
+        <span class="bg-gradient-to-r from-violet-400 to-blue-400 bg-clip-text text-transparent">
+          桌面管理面板
+        </span>
+      </h1>
+
+      <!-- 副标题 -->
+      <p class="text-xl text-gray-400 mb-10 max-w-2xl mx-auto leading-relaxed">
+        可视化管理 Claude Code 的配置、会话、Skills、Plugins、Hooks 和 Memory。
+        <br class="hidden sm:block" />
+        无需手动编辑 JSON / Markdown 文件。
+      </p>
+
+      <!-- CTA 按钮 -->
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+        <a href="https://github.com/MonkeyDTH/cc_assistant/releases/latest"
+           class="download-btn inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-semibold transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          下载最新版本
+        </a>
+        <a href="https://github.com/MonkeyDTH/cc_assistant" target="_blank" rel="noopener"
+           class="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-white/10 hover:border-white/20 text-gray-300 hover:text-white font-semibold transition-colors">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+          </svg>
+          在 GitHub 查看
+        </a>
+      </div>
+
+      <!-- 平台说明 -->
+      <p class="mt-6 text-xs text-gray-600">仅支持 Windows · 需要 Claude Code CLI</p>
+    </div>
+  </section>
+
+  <!-- 功能特性 -->
+  <section id="features" class="py-24 px-6">
+    <div class="max-w-5xl mx-auto">
+
+      <!-- 小节标题 -->
+      <div class="text-center mb-16">
+        <p class="text-violet-400 text-sm font-medium mb-3 tracking-wider uppercase">功能模块</p>
+        <h2 class="text-3xl sm:text-4xl font-bold text-white">所有 Claude Code 配置，一处搞定</h2>
+        <p class="mt-4 text-gray-400 max-w-xl mx-auto">所有数据直接读写 <code class="text-violet-300 bg-violet-900/30 px-1.5 py-0.5 rounded text-sm">~/.claude/</code> 下的文件，无额外数据库</p>
+      </div>
+
+      <!-- 功能卡片网格 -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+        <!-- 仪表盘 -->
+        <div class="feature-card gradient-border bg-gray-900/60 rounded-2xl p-5">
+          <div class="w-10 h-10 rounded-xl bg-violet-500/15 flex items-center justify-center mb-4 text-violet-400">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7zM3 7l9 6 9-6"/>
+            </svg>
+          </div>
+          <h3 class="font-semibold text-white mb-1.5">仪表盘</h3>
+          <p class="text-sm text-gray-500 leading-relaxed">多项目卡片网格，显示会话数、活跃状态，30s 自动刷新</p>
+        </div>
+
+        <!-- Prompt -->
+        <div class="feature-card gradient-border bg-gray-900/60 rounded-2xl p-5">
+          <div class="w-10 h-10 rounded-xl bg-blue-500/15 flex items-center justify-center mb-4 text-blue-400">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+            </svg>
+          </div>
+          <h3 class="font-semibold text-white mb-1.5">Prompt</h3>
+          <p class="text-sm text-gray-500 leading-relaxed">可视化编辑全局及项目级 CLAUDE.md，CodeMirror + 实时预览</p>
+        </div>
+
+        <!-- Memory -->
+        <div class="feature-card gradient-border bg-gray-900/60 rounded-2xl p-5">
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/15 flex items-center justify-center mb-4 text-emerald-400">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/>
+            </svg>
+          </div>
+          <h3 class="font-semibold text-white mb-1.5">Memory</h3>
+          <p class="text-sm text-gray-500 leading-relaxed">浏览/新建/编辑/删除 memory/*.md，按 type 过滤，自动同步索引</p>
+        </div>
+
+        <!-- Sessions -->
+        <div class="feature-card gradient-border bg-gray-900/60 rounded-2xl p-5">
+          <div class="w-10 h-10 rounded-xl bg-orange-500/15 flex items-center justify-center mb-4 text-orange-400">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+            </svg>
+          </div>
+          <h3 class="font-semibold text-white mb-1.5">Sessions</h3>
+          <p class="text-sm text-gray-500 leading-relaxed">会话历史列表，查看完整消息时间线，含 thinking block 折叠展示</p>
+        </div>
+
+        <!-- Skills -->
+        <div class="feature-card gradient-border bg-gray-900/60 rounded-2xl p-5">
+          <div class="w-10 h-10 rounded-xl bg-pink-500/15 flex items-center justify-center mb-4 text-pink-400">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+          </div>
+          <h3 class="font-semibold text-white mb-1.5">Skills</h3>
+          <p class="text-sm text-gray-500 leading-relaxed">扫描 ~/.claude/skills/，主从布局查看 SKILL.md，区分本地与符号链接</p>
+        </div>
+
+        <!-- Plugins -->
+        <div class="feature-card gradient-border bg-gray-900/60 rounded-2xl p-5">
+          <div class="w-10 h-10 rounded-xl bg-cyan-500/15 flex items-center justify-center mb-4 text-cyan-400">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
+            </svg>
+          </div>
+          <h3 class="font-semibold text-white mb-1.5">Plugins</h3>
+          <p class="text-sm text-gray-500 leading-relaxed">已安装插件管理（启用/禁用）+ 市场浏览，支持关键词搜索</p>
+        </div>
+
+        <!-- Hooks -->
+        <div class="feature-card gradient-border bg-gray-900/60 rounded-2xl p-5">
+          <div class="w-10 h-10 rounded-xl bg-yellow-500/15 flex items-center justify-center mb-4 text-yellow-400">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+          </div>
+          <h3 class="font-semibold text-white mb-1.5">Hooks</h3>
+          <p class="text-sm text-gray-500 leading-relaxed">可视化编辑 settings.json 中的 hooks，支持五种事件类型完整配置</p>
+        </div>
+
+        <!-- Settings -->
+        <div class="feature-card gradient-border bg-gray-900/60 rounded-2xl p-5">
+          <div class="w-10 h-10 rounded-xl bg-indigo-500/15 flex items-center justify-center mb-4 text-indigo-400">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
+            </svg>
+          </div>
+          <h3 class="font-semibold text-white mb-1.5">Settings</h3>
+          <p class="text-sm text-gray-500 leading-relaxed">全局设置（模型/API Key/权限）+ 项目级 settings.json 编辑器</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- 底部 CTA -->
+  <section class="py-20 px-6">
+    <div class="max-w-2xl mx-auto text-center">
+      <div class="gradient-border bg-gray-900/40 rounded-3xl p-10">
+        <h2 class="text-3xl font-bold text-white mb-4">立即开始使用</h2>
+        <p class="text-gray-400 mb-8">下载安装包，直接运行。无需配置，自动读取 ~/.claude/ 下的数据。</p>
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <a href="https://github.com/MonkeyDTH/cc_assistant/releases/latest"
+             class="download-btn inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-semibold transition-colors w-full sm:w-auto justify-center">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            下载 Windows 安装包
+          </a>
+          <a href="https://github.com/MonkeyDTH/cc_assistant" target="_blank" rel="noopener"
+             class="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-white/10 hover:border-white/20 text-gray-300 hover:text-white font-semibold transition-colors w-full sm:w-auto justify-center">
+            查看源码 →
+          </a>
+        </div>
+        <p class="mt-6 text-xs text-gray-600">Windows 11 · 需要 Claude Code CLI 已安装</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="border-t border-white/5 py-8 px-6">
+    <div class="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-gray-600">
+      <div class="flex items-center gap-2">
+        <div class="w-5 h-5 rounded bg-violet-600 flex items-center justify-center text-white text-xs font-bold">CC</div>
+        <span>CC Assistant</span>
+      </div>
+      <div class="flex items-center gap-6">
+        <a href="https://github.com/MonkeyDTH/cc_assistant/blob/master/CHANGELOG.md" class="hover:text-gray-400 transition-colors">Changelog</a>
+        <a href="https://github.com/MonkeyDTH/cc_assistant/issues" class="hover:text-gray-400 transition-colors">反馈 Issue</a>
+        <a href="https://github.com/MonkeyDTH/cc_assistant" class="hover:text-gray-400 transition-colors">GitHub</a>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
