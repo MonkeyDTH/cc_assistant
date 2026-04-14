@@ -2,6 +2,8 @@
 
 Claude Code 的桌面管理面板。提供可视化界面统一管理 Claude Code 的配置、会话、Skills、Plugins、Hooks 和 Memory，无需手动编辑 JSON/Markdown 文件。
 
+**[🌐 项目主页](https://monkeydth.github.io/cc_assistant/)** · **[⬇️ 下载最新版本](https://github.com/MonkeyDTH/cc_assistant/releases/latest)**
+
 ## 功能一览
 
 | 模块 | 功能 |
@@ -87,6 +89,7 @@ cc_assistant/
 ├── src-tauri/              # Rust 后端
 │   └── src/commands/       # Tauri 命令（每个功能模块一个文件）
 ├── docs/                   # 设计文档 + 开发进度
+├── landing/                # GitHub Pages 落地页
 └── vite.config.ts          # 构建配置（含分块策略）
 ```
 

@@ -131,9 +131,9 @@ log('─'.repeat(50) + '\n');
 
 // ── git commit + annotated tag ───────────────────────────────────────────────
 
-run('git add CHANGELOG.md');
+run('git add CHANGELOG.md package.json src-tauri/tauri.conf.json landing/index.html');
 run(`git commit -m "chore: release ${tag}"`);
-log(`✅ 已提交 CHANGELOG.md`);
+log(`✅ 已提交版本号变更和 CHANGELOG.md`);
 
 run(`git tag -a ${tag} -m "${tagMessage.replace(/"/g, '\\"')}"`);
 log(`✅ 已创建 annotated tag ${tag}\n`);
