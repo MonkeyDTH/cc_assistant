@@ -1,6 +1,11 @@
 use std::process::Command;
 use tauri::command;
 
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
 /// 去掉 ANSI 转义码（ESC [ ... m 等序列）
 fn strip_ansi(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
@@ -26,11 +31,13 @@ fn strip_ansi(s: &str) -> String {
 pub fn get_codeburn_data() -> Result<String, String> {
     let tmp_dir = std::env::temp_dir();
 
-    // Windows 上 npm 全局命令是 .cmd 文件，必须通过 cmd /c 调用
+    // Windows 上 npm 全局命令是 .cmd 文件，必须通过 cmd /c 调用；
+    // CREATE_NO_WINDOW 防止弹出黑色控制台窗口
     #[cfg(target_os = "windows")]
     let output = Command::new("cmd")
         .args(["/c", "codeburn", "export", "-f", "json", "--provider", "claude"])
         .current_dir(&tmp_dir)
+        .creation_flags(CREATE_NO_WINDOW)
         .output()
         .map_err(|e| format!("启动 codeburn 失败: {e}"))?;
 
