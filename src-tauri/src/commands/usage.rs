@@ -32,11 +32,31 @@ pub fn get_codeburn_data() -> Result<String, String> {
     let tmp_dir = std::env::temp_dir();
 
     // Windows 上 npm 全局命令是 .cmd 文件，必须通过 cmd /c 调用；
-    // CREATE_NO_WINDOW 防止弹出黑色控制台窗口
+    // CREATE_NO_WINDOW 防止弹出黑色控制台窗口。
+    // Tauri 作为 GUI 进程只继承系统 PATH，需手动合并用户 PATH 才能找到 npm 全局工具。
+    #[cfg(target_os = "windows")]
+    let full_path = {
+        let user_path = Command::new("pwsh")
+            .args(["-NoProfile", "-NonInteractive", "-Command",
+                   "[Environment]::GetEnvironmentVariable('PATH','User')"])
+            .creation_flags(CREATE_NO_WINDOW)
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
+        let user_path = user_path.trim();
+        if user_path.is_empty() {
+            std::env::var("PATH").unwrap_or_default()
+        } else {
+            format!("{};{}", std::env::var("PATH").unwrap_or_default(), user_path)
+        }
+    };
+
     #[cfg(target_os = "windows")]
     let output = Command::new("cmd")
         .args(["/c", "codeburn", "export", "-f", "json", "--provider", "claude"])
         .current_dir(&tmp_dir)
+        .env("PATH", &full_path)
         .creation_flags(CREATE_NO_WINDOW)
         .output()
         .map_err(|e| format!("启动 codeburn 失败: {e}"))?;

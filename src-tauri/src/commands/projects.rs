@@ -504,32 +504,41 @@ pub fn resume_session(project_path: String, session_id: String) -> Result<(), St
         use std::os::windows::process::CommandExt;
         const CREATE_NEW_CONSOLE: u32 = 0x00000010;
 
-        // 注意：不能在传给 wt 的命令中使用 `;`，
-        // 因为 Windows Terminal 会把 `;` 解析为多标签分隔符。
-        // wt 的 `-d` 已经设置起始目录，只需直接执行 claude -r。
-        let claude_cmd = format!("claude -r {}", session_id);
-
-        // 优先 pwsh（PS7），不存在则回退到 powershell（PS5）
-        let ps = if std::process::Command::new("pwsh").arg("--version").output().is_ok() {
-            "pwsh"
+        // Tauri 作为 GUI 进程继承系统 PATH，缺少用户级工具（如 claude）。
+        // 在 Rust 层读取用户 PATH 并合并后传给子进程，避免在 PowerShell 命令里
+        // 拼接 `;`（wt 会把 `;` 解析为多标签分隔符，导致 wt 启动失败）。
+        let user_path = std::process::Command::new("pwsh")
+            .args(["-NoProfile", "-NonInteractive", "-Command",
+                   "[Environment]::GetEnvironmentVariable('PATH','User')"])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
+        let user_path = user_path.trim();
+        let full_path = if user_path.is_empty() {
+            std::env::var("PATH").unwrap_or_default()
         } else {
-            "powershell"
+            format!("{};{}", std::env::var("PATH").unwrap_or_default(), user_path)
         };
 
-        // 优先尝试 Windows Terminal（-d 设置工作目录，无需 Set-Location）
+        let claude_cmd = format!("claude -r {}", session_id);
+
+        // 优先尝试 Windows Terminal + pwsh（PS7），-d 设置工作目录
         let wt_ok = std::process::Command::new("wt")
             .args([
                 "-d", &project_path,
-                "--", ps, "-NoExit", "-Command", &claude_cmd,
+                "--", "pwsh", "-NoExit", "-Command", &claude_cmd,
             ])
+            .env("PATH", &full_path)
             .spawn()
             .is_ok();
 
         if !wt_ok {
-            // 回退：直接新建 PowerShell 窗口，通过 current_dir 设置工作目录
-            std::process::Command::new(ps)
+            // 回退：直接新建 pwsh 窗口
+            std::process::Command::new("pwsh")
                 .args(["-NoExit", "-Command", &claude_cmd])
                 .current_dir(&project_path)
+                .env("PATH", &full_path)
                 .creation_flags(CREATE_NEW_CONSOLE)
                 .spawn()
                 .map_err(|e| e.to_string())?;
