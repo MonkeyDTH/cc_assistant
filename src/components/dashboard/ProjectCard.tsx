@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FolderOpen, MessageSquare, Clock, FileText, Trash2 } from "lucide-react";
+import { FolderOpen, MessageSquare, Clock, FileText, Trash2, EyeOff } from "lucide-react";
 import type { Project, ActiveSession } from "@/lib/types";
 import { getProjectName, getProjectDir, formatRelativeTime, encodeCwdToProjectId } from "@/lib/utils";
 
@@ -9,10 +9,11 @@ interface Props {
   onSelectSessions: () => void;
   onEditPrompt: () => void;
   onDeleteProject: () => void;
+  onHideProject: () => void;
   style?: React.CSSProperties;
 }
 
-export function ProjectCard({ project, activeSessions, onSelectSessions, onEditPrompt, onDeleteProject, style }: Props) {
+export function ProjectCard({ project, activeSessions, onSelectSessions, onEditPrompt, onDeleteProject, onHideProject, style }: Props) {
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const activeSession = activeSessions.find((s) =>
@@ -140,6 +141,23 @@ export function ProjectCard({ project, activeSessions, onSelectSessions, onEditP
         >
           <FileText size={12} />
           {project.has_project_claude_md ? "编辑 Prompt" : "添加 Prompt"}
+        </button>
+
+        <button
+          onClick={onHideProject}
+          className="flex items-center justify-center px-2 py-1.5 rounded-lg text-xs font-medium transition-colors"
+          style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}
+          title="屏蔽项目"
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(99,102,241,0.12)";
+            e.currentTarget.style.color = "#6366f1";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "var(--surface-2)";
+            e.currentTarget.style.color = "var(--text-secondary)";
+          }}
+        >
+          <EyeOff size={12} />
         </button>
 
         <button

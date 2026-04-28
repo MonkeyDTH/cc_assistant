@@ -10,12 +10,16 @@ pub struct AppConfig {
     /// 关闭窗口时最小化到系统托盘，而不是退出
     #[serde(default)]
     pub minimize_to_tray: bool,
+    /// 在仪表盘和会话记录中隐藏的项目 ID 列表
+    #[serde(default)]
+    pub hidden_project_ids: Vec<String>,
 }
 
 impl Default for AppConfig {
     fn default() -> Self {
         AppConfig {
             minimize_to_tray: false,
+            hidden_project_ids: Vec::new(),
         }
     }
 }

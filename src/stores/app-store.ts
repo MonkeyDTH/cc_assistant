@@ -41,6 +41,10 @@ interface AppState {
   fetchAppConfig: () => Promise<void>;
   updateAppConfig: (config: AppConfig) => Promise<void>;
 
+  // 项目屏蔽
+  hideProject: (projectId: string) => Promise<void>;
+  unhideProject: (projectId: string) => Promise<void>;
+
   // 删除项目
   deleteProject: (projectId: string) => Promise<void>;
 
@@ -133,6 +137,23 @@ export const useAppStore = create<AppState>((set, get) => ({
   updateAppConfig: async (config) => {
     await api.writeAppConfig(config);
     set({ appConfig: config });
+  },
+
+  // 屏蔽 / 取消屏蔽项目（写入 AppConfig 持久化）
+  hideProject: async (projectId: string) => {
+    const current = get().appConfig;
+    const ids = current?.hidden_project_ids ?? [];
+    if (ids.includes(projectId)) return;
+    const next = { ...(current ?? { minimize_to_tray: false, hidden_project_ids: [] }), hidden_project_ids: [...ids, projectId] };
+    await api.writeAppConfig(next);
+    set({ appConfig: next });
+  },
+  unhideProject: async (projectId: string) => {
+    const current = get().appConfig;
+    const ids = current?.hidden_project_ids ?? [];
+    const next = { ...(current ?? { minimize_to_tray: false, hidden_project_ids: [] }), hidden_project_ids: ids.filter((id) => id !== projectId) };
+    await api.writeAppConfig(next);
+    set({ appConfig: next });
   },
 
   // 删除项目：删除后从列表移除

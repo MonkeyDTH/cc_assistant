@@ -1,9 +1,10 @@
-import { useMemo } from "react";
-import { RefreshCw, FolderOpen, Cpu, MessageSquare, Layers } from "lucide-react";
+import { useMemo, useState } from "react";
+import { RefreshCw, FolderOpen, Cpu, MessageSquare, Layers, EyeOff } from "lucide-react";
 import { useAppStore } from "@/stores/app-store";
 import { encodeCwdToProjectId } from "@/lib/utils";
 import { ProjectCard } from "./ProjectCard";
 import { ActiveSessionsPanel } from "./ActiveSessionsPanel";
+import { HiddenProjectsModal } from "./HiddenProjectsModal";
 
 export function Dashboard() {
   const {
@@ -14,7 +15,16 @@ export function Dashboard() {
     setActiveNav,
     setSelectedProject,
     deleteProject,
+    hideProject,
+    unhideProject,
+    appConfig,
   } = useAppStore();
+
+  const [showHidden, setShowHidden] = useState(false);
+
+  const hiddenIds = useMemo(() => new Set(appConfig?.hidden_project_ids ?? []), [appConfig]);
+  const visibleProjects = useMemo(() => projects.filter((p) => !hiddenIds.has(p.id)), [projects, hiddenIds]);
+  const hiddenProjects = useMemo(() => projects.filter((p) => hiddenIds.has(p.id)), [projects, hiddenIds]);
 
   function handleSelectSessions(projectId: string) {
     setSelectedProject(projectId);
@@ -26,18 +36,17 @@ export function Dashboard() {
     setActiveNav("prompt");
   }
 
-  const totalSessions = projects.reduce((s, p) => s + p.session_count, 0);
+  const totalSessions = visibleProjects.reduce((s, p) => s + p.session_count, 0);
 
-  // 按 cwd 编码与 project.id 比对，统计有活跃会话的不重复项目数
   const activeProjectCount = useMemo(() => {
     const matched = new Set<string>();
     for (const s of activeSessions) {
       const encoded = encodeCwdToProjectId(s.cwd).toLowerCase();
-      const p = projects.find((p) => p.id.toLowerCase() === encoded);
+      const p = visibleProjects.find((p) => p.id.toLowerCase() === encoded);
       if (p) matched.add(p.id);
     }
     return matched.size;
-  }, [activeSessions, projects]);
+  }, [activeSessions, visibleProjects]);
 
   function handleNavigateToSession(projectId: string, sessionId: string) {
     setSelectedProject(projectId);
@@ -60,30 +69,52 @@ export function Dashboard() {
             管理你的 Claude Code 项目
           </p>
         </div>
-        <button
-          onClick={fetchProjects}
-          disabled={projectsLoading}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all"
-          style={{
-            background: "var(--surface-2)",
-            color: "var(--text-secondary)",
-            border: "1px solid var(--border)",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = "var(--accent)";
-            e.currentTarget.style.color = "var(--accent)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = "var(--border)";
-            e.currentTarget.style.color = "var(--text-secondary)";
-          }}
-        >
-          <RefreshCw
-            size={14}
-            className={projectsLoading ? "animate-spin" : ""}
-          />
-          刷新
-        </button>
+        <div className="flex items-center gap-2">
+          {hiddenProjects.length > 0 && (
+            <button
+              onClick={() => setShowHidden(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all"
+              style={{
+                background: "rgba(99,102,241,0.08)",
+                color: "#6366f1",
+                border: "1px solid rgba(99,102,241,0.2)",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(99,102,241,0.15)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "rgba(99,102,241,0.08)";
+              }}
+            >
+              <EyeOff size={14} />
+              已屏蔽 {hiddenProjects.length}
+            </button>
+          )}
+          <button
+            onClick={fetchProjects}
+            disabled={projectsLoading}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all"
+            style={{
+              background: "var(--surface-2)",
+              color: "var(--text-secondary)",
+              border: "1px solid var(--border)",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = "var(--accent)";
+              e.currentTarget.style.color = "var(--accent)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = "var(--border)";
+              e.currentTarget.style.color = "var(--text-secondary)";
+            }}
+          >
+            <RefreshCw
+              size={14}
+              className={projectsLoading ? "animate-spin" : ""}
+            />
+            刷新
+          </button>
+        </div>
       </header>
 
       {/* 统计条 */}
@@ -94,7 +125,7 @@ export function Dashboard() {
         <Stat
           icon={<FolderOpen size={14} />}
           label="项目总数"
-          value={projects.length}
+          value={visibleProjects.length}
         />
         <div style={{ width: "1px", background: "var(--border)" }} />
         <Stat
@@ -129,11 +160,11 @@ export function Dashboard() {
 
         {projectsLoading ? (
           <ProjectGridSkeleton />
-        ) : projects.length === 0 ? (
-          <EmptyState />
+        ) : visibleProjects.length === 0 ? (
+          <EmptyState hasHidden={hiddenProjects.length > 0} onShowHidden={() => setShowHidden(true)} />
         ) : (
           <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))" }}>
-            {projects.map((project, i) => (
+            {visibleProjects.map((project, i) => (
               <ProjectCard
                 key={project.id}
                 project={project}
@@ -141,10 +172,19 @@ export function Dashboard() {
                 onSelectSessions={() => handleSelectSessions(project.id)}
                 onEditPrompt={() => handleEditPrompt(project.id)}
                 onDeleteProject={() => deleteProject(project.id)}
+                onHideProject={() => hideProject(project.id)}
                 style={{ animationDelay: `${i * 60}ms` }}
               />
             ))}
           </div>
+        )}
+
+        {showHidden && (
+          <HiddenProjectsModal
+            hiddenProjects={hiddenProjects}
+            onUnhide={(id) => unhideProject(id)}
+            onClose={() => setShowHidden(false)}
+          />
         )}
       </div>
     </div>
@@ -187,18 +227,27 @@ function ProjectGridSkeleton() {
   );
 }
 
-function EmptyState() {
+function EmptyState({ hasHidden, onShowHidden }: { hasHidden?: boolean; onShowHidden?: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center h-64 gap-3">
       <FolderOpen size={40} style={{ color: "var(--text-tertiary)" }} />
       <div className="text-center">
         <p className="font-medium" style={{ color: "var(--text-secondary)" }}>
-          暂无项目记录
+          {hasHidden ? "所有项目均已屏蔽" : "暂无项目记录"}
         </p>
         <p className="text-sm mt-1" style={{ color: "var(--text-tertiary)" }}>
-          开始一个 Claude Code 会话后，项目将自动出现在这里
+          {hasHidden ? "点击上方「已屏蔽」按钮可恢复显示" : "开始一个 Claude Code 会话后，项目将自动出现在这里"}
         </p>
       </div>
+      {hasHidden && onShowHidden && (
+        <button
+          onClick={onShowHidden}
+          className="text-sm px-4 py-2 rounded-lg font-medium"
+          style={{ background: "rgba(99,102,241,0.12)", color: "#6366f1" }}
+        >
+          查看已屏蔽项目
+        </button>
+      )}
     </div>
   );
 }

@@ -46,7 +46,7 @@ function shortModel(model: string | null): string {
 type TabMode = "sessions" | "history";
 
 export function SessionsPage() {
-  const { projects, selectedProjectId, setSelectedProject, activeSessions, preselectedSessionId, setPreselectedSession } = useAppStore();
+  const { projects, selectedProjectId, setSelectedProject, activeSessions, preselectedSessionId, setPreselectedSession, appConfig } = useAppStore();
   const [tab, setTab] = useState<TabMode>("sessions");
   const [sessions, setSessions] = useState<ConversationMeta[]>([]);
   const [loading, setLoading] = useState(false);
@@ -58,8 +58,11 @@ export function SessionsPage() {
   const [historyResults, setHistoryResults] = useState<HistoryEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  const currentProjectId = selectedProjectId ?? projects[0]?.id;
-  const currentProject = projects.find((p) => p.id === currentProjectId);
+  const hiddenIds = new Set(appConfig?.hidden_project_ids ?? []);
+  const visibleProjects = projects.filter((p) => !hiddenIds.has(p.id));
+
+  const currentProjectId = selectedProjectId ?? visibleProjects[0]?.id;
+  const currentProject = visibleProjects.find((p) => p.id === currentProjectId);
 
   useEffect(() => {
     if (!currentProjectId || tab !== "sessions") return;
@@ -145,7 +148,7 @@ export function SessionsPage() {
                 fontFamily: "inherit",
               }}
             >
-              {projects.map((p) => (
+              {visibleProjects.map((p) => (
                 <option key={p.id} value={p.id}>{getProjectName(p.path)}</option>
               ))}
             </select>

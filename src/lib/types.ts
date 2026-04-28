@@ -184,6 +184,7 @@ export interface ProfilesConfig {
 
 export interface AppConfig {
   minimize_to_tray: boolean;
+  hidden_project_ids: string[];
 }
 
 // ——— Codeburn 用量数据 ———

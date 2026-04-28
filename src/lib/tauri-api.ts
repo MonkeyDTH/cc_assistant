@@ -153,7 +153,7 @@ function mockInvoke<T>(cmd: string, _args?: Record<string, unknown>): T {
       ANTHROPIC_DEFAULT_HAIKU_MODEL:  "claude-haiku-4-5",
     } as Record<string, string>,
 
-    read_app_config: { minimize_to_tray: false } as AppConfig,
+    read_app_config: { minimize_to_tray: false, hidden_project_ids: [] } as AppConfig,
 
     list_marketplaces: [
       { id: "claude-plugins-official", source: { source: "github", repo: "anthropics/claude-plugins-official" }, install_location: "", last_updated: new Date().toISOString() },
