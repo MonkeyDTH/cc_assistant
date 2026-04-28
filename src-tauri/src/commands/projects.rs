@@ -509,18 +509,25 @@ pub fn resume_session(project_path: String, session_id: String) -> Result<(), St
         // wt 的 `-d` 已经设置起始目录，只需直接执行 claude -r。
         let claude_cmd = format!("claude -r {}", session_id);
 
+        // 优先 pwsh（PS7），不存在则回退到 powershell（PS5）
+        let ps = if std::process::Command::new("pwsh").arg("--version").output().is_ok() {
+            "pwsh"
+        } else {
+            "powershell"
+        };
+
         // 优先尝试 Windows Terminal（-d 设置工作目录，无需 Set-Location）
         let wt_ok = std::process::Command::new("wt")
             .args([
                 "-d", &project_path,
-                "--", "powershell", "-NoExit", "-Command", &claude_cmd,
+                "--", ps, "-NoExit", "-Command", &claude_cmd,
             ])
             .spawn()
             .is_ok();
 
         if !wt_ok {
             // 回退：直接新建 PowerShell 窗口，通过 current_dir 设置工作目录
-            std::process::Command::new("powershell")
+            std::process::Command::new(ps)
                 .args(["-NoExit", "-Command", &claude_cmd])
                 .current_dir(&project_path)
                 .creation_flags(CREATE_NEW_CONSOLE)
