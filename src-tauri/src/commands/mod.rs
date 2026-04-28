@@ -11,6 +11,7 @@ pub mod marketplace;
 pub mod env_vars;
 pub mod profiles;
 pub mod app_config;
+pub mod usage;
 
 use std::path::PathBuf;
 use std::fs;

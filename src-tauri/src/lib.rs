@@ -2,7 +2,7 @@ mod commands;
 
 use commands::{
     projects, settings, prompt, skills, plugins, hooks, memory,
-    history, project_settings, marketplace, env_vars, profiles, app_config,
+    history, project_settings, marketplace, env_vars, profiles, app_config, usage,
 };
 use commands::app_config::{AppConfigState, load_app_config};
 use tauri::{Manager, menu::{Menu, MenuItem}};
@@ -129,6 +129,8 @@ pub fn run() {
             // App 偏好设置
             app_config::read_app_config,
             app_config::write_app_config,
+            // 用量统计
+            usage::get_codeburn_data,
         ])
         .run(tauri::generate_context!())
         .expect("运行 Tauri 应用时出错");

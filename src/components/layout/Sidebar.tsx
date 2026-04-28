@@ -14,6 +14,7 @@ import {
   ChevronDown,
   Check,
   Settings,
+  BarChart2,
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useAppStore } from "@/stores/app-store";
@@ -31,6 +32,7 @@ interface NavEntry {
 const NAV_ITEMS: NavEntry[] = [
   { id: "dashboard", label: "仪表盘",   icon: <LayoutDashboard size={16} />, group: "概览" },
   { id: "sessions",  label: "会话记录", icon: <MessageSquare size={16} />,   group: "概览" },
+  { id: "usage",     label: "用量统计", icon: <BarChart2 size={16} />,       group: "概览" },
   { id: "prompt",    label: "Prompt",   icon: <FileText size={16} />,         group: "配置" },
   { id: "memory",   label: "Memory",   icon: <Brain size={16} />,            group: "配置" },
   { id: "hooks",     label: "Hooks",    icon: <GitBranch size={16} />,        group: "配置" },

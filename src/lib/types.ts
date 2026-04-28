@@ -186,6 +186,89 @@ export interface AppConfig {
   minimize_to_tray: boolean;
 }
 
+// ——— Codeburn 用量数据 ———
+
+export interface CodburnSummary {
+  Period: string;
+  "Cost (USD)": number;
+  "API Calls": number;
+  Sessions: number;
+  Projects: number;
+}
+
+export interface CodburnDailyEntry {
+  Period: string;
+  Date: string;
+  "Cost (USD)": number;
+  "API Calls": number;
+  Sessions: number;
+  "Input Tokens": number;
+  "Output Tokens": number;
+  "Cache Read Tokens": number;
+  "Cache Write Tokens": number;
+}
+
+export interface CodburnActivityEntry {
+  Period: string;
+  Activity: string;
+  "Cost (USD)": number;
+  "Share (%)": number;
+  Turns: number;
+}
+
+export interface CodburnModelEntry {
+  Period: string;
+  Model: string;
+  "Cost (USD)": number;
+  "Share (%)": number;
+  "API Calls": number;
+  "Input Tokens": number;
+  "Output Tokens": number;
+  "Cache Read Tokens": number;
+  "Cache Write Tokens": number;
+}
+
+export interface CodburnPeriod {
+  label: string;
+  daily: CodburnDailyEntry[];
+  activity: CodburnActivityEntry[];
+  models: CodburnModelEntry[];
+}
+
+export interface CodburnProject {
+  Project: string;
+  "Cost (USD)": number;
+  "Avg/Session (USD)": number;
+  "Share (%)": number;
+  "API Calls": number;
+  Sessions: number;
+}
+
+export interface CodburnCurrency {
+  code: string;
+  rate: number;
+  symbol: string;
+}
+
+export interface CodburnSession {
+  Project: string;
+  "Session ID": string;
+  "Started At": string;
+  "Cost (USD)": number;
+  "API Calls": number;
+  Turns: number;
+}
+
+export interface CodburnData {
+  schema: string;
+  generated: string;
+  currency: CodburnCurrency;
+  summary: CodburnSummary[];
+  periods: CodburnPeriod[];
+  projects: CodburnProject[];
+  sessions: CodburnSession[];
+}
+
 // ——— UI 状态 ———
 
 export type NavItem =
@@ -199,4 +282,5 @@ export type NavItem =
   | "model"
   | "permission"
   | "profiles"
-  | "preferences";
+  | "preferences"
+  | "usage";

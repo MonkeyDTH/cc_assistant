@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect, Component, type ReactNode } from "react";
 import { Sidebar } from "./Sidebar";
 import { useAppStore } from "@/stores/app-store";
 
@@ -14,6 +14,7 @@ const ModelPage      = lazy(() => import("@/components/model/ModelPage").then((m
 const PermissionPage = lazy(() => import("@/components/permission/PermissionPage").then((m) => ({ default: m.PermissionPage })));
 const ProfilesPage     = lazy(() => import("@/components/profiles/ProfilesPage").then((m) => ({ default: m.ProfilesPage })));
 const PreferencesPage  = lazy(() => import("@/components/preferences/PreferencesPage").then((m) => ({ default: m.PreferencesPage })));
+const UsagePage        = lazy(() => import("@/components/usage/UsagePage").then((m) => ({ default: m.UsagePage })));
 
 const PAGE_MAP = {
   dashboard:  Dashboard,
@@ -27,7 +28,41 @@ const PAGE_MAP = {
   permission:  PermissionPage,
   profiles:    ProfilesPage,
   preferences: PreferencesPage,
+  usage:       UsagePage,
 } as const;
+
+class PageErrorBoundary extends Component<
+  { children: ReactNode },
+  { error: string | null }
+> {
+  state = { error: null };
+  static getDerivedStateFromError(e: unknown) {
+    return { error: String(e) };
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center h-full gap-3 p-8">
+          <div className="text-sm font-medium" style={{ color: "#ef4444" }}>页面渲染出错</div>
+          <div
+            className="text-xs font-mono max-w-lg text-center p-3 rounded-lg"
+            style={{ color: "var(--text-tertiary)", background: "var(--surface-2)", border: "1px solid var(--border)" }}
+          >
+            {this.state.error}
+          </div>
+          <button
+            className="text-xs px-3 py-1.5 rounded-lg"
+            style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}
+            onClick={() => this.setState({ error: null })}
+          >
+            重试
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function PageFallback() {
   return (
@@ -81,9 +116,11 @@ export function MainLayout() {
     <div className="flex h-full w-full overflow-hidden">
       <Sidebar />
       <main className="flex-1 overflow-hidden" style={{ background: "var(--surface)" }}>
-        <Suspense fallback={<PageFallback />}>
-          <PageComponent />
-        </Suspense>
+        <PageErrorBoundary>
+          <Suspense fallback={<PageFallback />}>
+            <PageComponent />
+          </Suspense>
+        </PageErrorBoundary>
       </main>
     </div>
   );

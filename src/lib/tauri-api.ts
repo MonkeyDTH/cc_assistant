@@ -13,6 +13,7 @@ import type {
   MarketplacePlugin,
   ProfilesConfig,
   AppConfig,
+  CodburnData,
 } from "./types";
 
 const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -294,6 +295,12 @@ export const api = {
   // App 偏好设置
   readAppConfig: () => invoke<AppConfig>("read_app_config"),
   writeAppConfig: (config: AppConfig) => invoke<void>("write_app_config", { config }),
+
+  // 用量统计
+  getCodburnData: async (): Promise<CodburnData> => {
+    const raw = await invoke<string>("get_codeburn_data");
+    return JSON.parse(raw) as CodburnData;
+  },
 
   // Prompt
   readGlobalClaudeMd: () => invoke<string>("read_global_claude_md"),
