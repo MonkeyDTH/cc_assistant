@@ -80,12 +80,13 @@ function PageFallback() {
 const SESSION_POLL_INTERVAL = 30_000;
 
 export function MainLayout() {
-  const { activeNav, fetchProjects } = useAppStore();
+  const { activeNav, fetchProjects, fetchAppConfig } = useAppStore();
 
   // 启动时初始加载
   useEffect(() => {
     fetchProjects();
-  }, [fetchProjects]);
+    fetchAppConfig();
+  }, [fetchProjects, fetchAppConfig]);
 
   // 窗口/标签页重新激活时刷新项目状态
   useEffect(() => {
