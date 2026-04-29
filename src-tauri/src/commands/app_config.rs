@@ -13,6 +13,9 @@ pub struct AppConfig {
     /// 在仪表盘和会话记录中隐藏的项目 ID 列表
     #[serde(default)]
     pub hidden_project_ids: Vec<String>,
+    /// Hooks 页面：仅显示已配置的 hook 事件
+    #[serde(default)]
+    pub hooks_only_configured: bool,
 }
 
 impl Default for AppConfig {
@@ -20,6 +23,7 @@ impl Default for AppConfig {
         AppConfig {
             minimize_to_tray: false,
             hidden_project_ids: Vec::new(),
+            hooks_only_configured: false,
         }
     }
 }

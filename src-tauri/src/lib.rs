@@ -131,6 +131,9 @@ pub fn run() {
             app_config::write_app_config,
             // 用量统计
             usage::get_codeburn_data,
+            usage::read_usage_cache,
+            usage::write_usage_cache,
+            usage::clear_usage_cache,
         ])
         .run(tauri::generate_context!())
         .expect("运行 Tauri 应用时出错");

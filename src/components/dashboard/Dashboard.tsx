@@ -1,10 +1,12 @@
-import { useMemo, useState } from "react";
-import { RefreshCw, FolderOpen, Cpu, MessageSquare, Layers, EyeOff } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { RefreshCw, FolderOpen, Cpu, MessageSquare, Layers, EyeOff, DollarSign } from "lucide-react";
 import { useAppStore } from "@/stores/app-store";
 import { encodeCwdToProjectId } from "@/lib/utils";
+import { api } from "@/lib/tauri-api";
 import { ProjectCard } from "./ProjectCard";
 import { ActiveSessionsPanel } from "./ActiveSessionsPanel";
 import { HiddenProjectsModal } from "./HiddenProjectsModal";
+import type { CodburnData } from "@/lib/types";
 
 export function Dashboard() {
   const {
@@ -21,6 +23,23 @@ export function Dashboard() {
   } = useAppStore();
 
   const [showHidden, setShowHidden] = useState(false);
+  // 今日花费（直接从用量缓存读取，缓存不存在则不显示该统计项）
+  const [todayCost, setTodayCost] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.readUsageCache().then((raw) => {
+      if (cancelled || !raw) return;
+      try {
+        const file = JSON.parse(raw) as { data: CodburnData };
+        const today = file.data.summary.find((s) => s.Period === "Today");
+        if (today) setTodayCost(today["Cost (USD)"]);
+      } catch {
+        // 缓存格式异常，忽略
+      }
+    }).catch(() => { /* 无缓存：不显示 */ });
+    return () => { cancelled = true; };
+  }, []);
 
   const hiddenIds = useMemo(() => new Set(appConfig?.hidden_project_ids ?? []), [appConfig]);
   const visibleProjects = useMemo(() => projects.filter((p) => !hiddenIds.has(p.id)), [projects, hiddenIds]);
@@ -147,6 +166,17 @@ export function Dashboard() {
           value={activeSessions.length}
           highlight={activeSessions.length > 0}
         />
+        {todayCost !== null && (
+          <>
+            <div style={{ width: "1px", background: "var(--border)" }} />
+            <Stat
+              icon={<DollarSign size={14} />}
+              label="今日花费"
+              value={`$${todayCost.toFixed(2)}`}
+              highlight
+            />
+          </>
+        )}
       </div>
 
       {/* 项目卡片区 */}
@@ -196,7 +226,7 @@ function Stat({
 }: {
   icon: React.ReactNode;
   label: string;
-  value: number;
+  value: number | string;
   highlight?: boolean;
 }) {
   return (

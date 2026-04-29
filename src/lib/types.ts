@@ -185,6 +185,8 @@ export interface ProfilesConfig {
 export interface AppConfig {
   minimize_to_tray: boolean;
   hidden_project_ids: string[];
+  /** Hooks 页面：仅显示已配置的 hook 事件 */
+  hooks_only_configured: boolean;
 }
 
 // ——— Codeburn 用量数据 ———

@@ -262,6 +262,23 @@ function ProjectsTable({ projects, label }: { projects: CodburnProject[]; label:
 
 // ——— 模块级缓存，页面卸载后仍保留 ———
 let cachedData: CodburnData | null = null;
+let cachedAt = 0; // 上次成功加载的时间戳（ms）
+
+// 进程内缓存的"足够新鲜"窗口：在此窗口内重新打开页面不再触发 codeburn
+const FRESH_WINDOW_MS = 60 * 1000;
+
+// 取本地日期 YYYY-MM-DD（用于跨天判断，不受时区漂移影响）
+function localDateKey(d: Date = new Date()): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+interface UsageCacheFile {
+  savedAt: string; // ISO 时间戳
+  data: CodburnData;
+}
 
 // ——— 主页面 ———
 
@@ -270,8 +287,8 @@ export function UsagePage() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // 默认展示 7 天维度
-  const [periodIdx, setPeriodIdx] = useState(1);
+  // 默认展示 Today 维度
+  const [periodIdx, setPeriodIdx] = useState(0);
 
   async function load(silent = false) {
     if (silent) {
@@ -283,8 +300,12 @@ export function UsagePage() {
     try {
       const result = await api.getCodburnData();
       cachedData = result;
+      cachedAt = Date.now();
       setData(result);
       setError(null);
+      // 持久化缓存（带保存时间，便于下次启动时跨天判断）
+      const file: UsageCacheFile = { savedAt: new Date().toISOString(), data: result };
+      try { await api.writeUsageCache(JSON.stringify(file)); } catch { /* 写缓存失败不影响 UI */ }
     } catch (e) {
       if (!silent) setError(String(e));
     } finally {
@@ -294,8 +315,40 @@ export function UsagePage() {
   }
 
   useEffect(() => {
-    // 有缓存时静默刷新，无缓存时全量加载
-    load(cachedData !== null);
+    let cancelled = false;
+    (async () => {
+      // 内存里已有缓存（同一进程内切页面回来）
+      if (cachedData) {
+        // 足够新鲜则不重复调 codeburn，直接复用，避免切页面卡顿
+        if (Date.now() - cachedAt < FRESH_WINDOW_MS) return;
+        load(true);
+        return;
+      }
+      // 尝试从磁盘读取上次缓存
+      try {
+        const raw = await api.readUsageCache();
+        if (cancelled) return;
+        if (raw) {
+          const file = JSON.parse(raw) as UsageCacheFile;
+          const savedTs = new Date(file.savedAt).getTime();
+          const sameDay = localDateKey(new Date(savedTs)) === localDateKey();
+          if (sameDay) {
+            // 同一天：先点亮 UI，再视新鲜度决定是否后台刷新
+            cachedData = file.data;
+            cachedAt = savedTs;
+            setData(file.data);
+            if (Date.now() - savedTs >= FRESH_WINDOW_MS) load(true);
+            return;
+          }
+          // 跨天了：缓存视为过期，删掉再强制重新拉
+          try { await api.clearUsageCache(); } catch { /* 忽略 */ }
+        }
+      } catch {
+        // 缓存损坏或读不出来，忽略，走正常加载
+      }
+      if (!cancelled) load(false);
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   const period = data?.periods[periodIdx] ?? null;
@@ -312,7 +365,7 @@ export function UsagePage() {
             用量统计
           </h1>
           <p className="text-sm mt-0.5 flex items-center gap-2" style={{ color: "var(--text-secondary)" }}>
-            {data ? `数据生成于 ${new Date(data.generated).toLocaleString()}` : "由 codeburn 提供数据"}
+            {data ? `数据更新于 ${new Date(data.generated).toLocaleString()}` : "由 codeburn 提供数据"}
             {refreshing && (
               <span className="flex items-center gap-1 text-xs" style={{ color: "var(--text-tertiary)" }}>
                 <RefreshCw size={11} className="animate-spin" />

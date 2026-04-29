@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::process::Command;
 use tauri::command;
 
@@ -26,9 +27,17 @@ fn strip_ansi(s: &str) -> String {
     out
 }
 
-/// 调用 codeburn export -f json，将输出文件读取后返回 JSON 字符串，并删除临时文件
+/// 调用 codeburn export -f json，将输出文件读取后返回 JSON 字符串，并删除临时文件。
+/// 必须用 async + spawn_blocking：codeburn 进程动辄数秒，
+/// 同步命令会占用 Tauri 主线程，阻塞所有 IPC（其他页面也切不动）。
 #[command]
-pub fn get_codeburn_data() -> Result<String, String> {
+pub async fn get_codeburn_data() -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(get_codeburn_data_blocking)
+        .await
+        .map_err(|e| format!("codeburn 任务调度失败: {e}"))?
+}
+
+fn get_codeburn_data_blocking() -> Result<String, String> {
     let tmp_dir = std::env::temp_dir();
 
     // Windows 上 npm 全局命令是 .cmd 文件，必须通过 cmd /c 调用；
@@ -99,4 +108,37 @@ pub fn get_codeburn_data() -> Result<String, String> {
     let _ = std::fs::remove_file(&file_path);
 
     Ok(content)
+}
+
+// ── 用量缓存：~/.cc-assistant/usage-cache.json ──
+// 内容由前端组装，形如 { savedAt: "2026-04-29T12:34:56.000Z", data: <CodburnData> }
+// 后端只负责字符串读写，不解析结构
+
+fn usage_cache_path() -> Option<PathBuf> {
+    dirs::home_dir().map(|h| h.join(".cc-assistant").join("usage-cache.json"))
+}
+
+#[command]
+pub fn read_usage_cache() -> Option<String> {
+    let path = usage_cache_path()?;
+    std::fs::read_to_string(&path).ok()
+}
+
+#[command]
+pub fn write_usage_cache(content: String) -> Result<(), String> {
+    let path = usage_cache_path().ok_or_else(|| "无法获取 home 目录".to_string())?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    std::fs::write(&path, content).map_err(|e| e.to_string())
+}
+
+#[command]
+pub fn clear_usage_cache() -> Result<(), String> {
+    if let Some(path) = usage_cache_path() {
+        if path.exists() {
+            std::fs::remove_file(&path).map_err(|e| e.to_string())?;
+        }
+    }
+    Ok(())
 }

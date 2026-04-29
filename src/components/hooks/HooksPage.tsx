@@ -3,6 +3,7 @@ import { GitBranch, Plus, Trash2, ChevronDown, ChevronRight, Save } from "lucide
 import { api } from "@/lib/tauri-api";
 import { SaveStatusBadge } from "@/components/ui/SaveStatusBadge";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
+import { useAppStore } from "@/stores/app-store";
 import type { HooksConfig, HookMatcher, HookEntry } from "@/lib/types";
 
 interface HookGroup {
@@ -93,8 +94,19 @@ export function HooksPage() {
   );
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  // 是否仅显示已配置的 hook 事件
-  const [onlyConfigured, setOnlyConfigured] = useState(false);
+  // 仅显示已配置的 hook 事件——持久化在 AppConfig 中
+  const appConfig = useAppStore((s) => s.appConfig);
+  const updateAppConfig = useAppStore((s) => s.updateAppConfig);
+  const fetchAppConfig = useAppStore((s) => s.fetchAppConfig);
+  const onlyConfigured = appConfig?.hooks_only_configured ?? false;
+  const setOnlyConfigured = (v: boolean) => {
+    if (!appConfig) return;
+    updateAppConfig({ ...appConfig, hooks_only_configured: v });
+  };
+
+  useEffect(() => {
+    if (!appConfig) fetchAppConfig();
+  }, [appConfig, fetchAppConfig]);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saved" | "error">("idle");
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 

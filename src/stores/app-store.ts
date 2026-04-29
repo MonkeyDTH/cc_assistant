@@ -144,14 +144,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     const current = get().appConfig;
     const ids = current?.hidden_project_ids ?? [];
     if (ids.includes(projectId)) return;
-    const next = { ...(current ?? { minimize_to_tray: false, hidden_project_ids: [] }), hidden_project_ids: [...ids, projectId] };
+    const next = { ...(current ?? { minimize_to_tray: false, hidden_project_ids: [], hooks_only_configured: false }), hidden_project_ids: [...ids, projectId] };
     await api.writeAppConfig(next);
     set({ appConfig: next });
   },
   unhideProject: async (projectId: string) => {
     const current = get().appConfig;
     const ids = current?.hidden_project_ids ?? [];
-    const next = { ...(current ?? { minimize_to_tray: false, hidden_project_ids: [] }), hidden_project_ids: ids.filter((id) => id !== projectId) };
+    const next = { ...(current ?? { minimize_to_tray: false, hidden_project_ids: [], hooks_only_configured: false }), hidden_project_ids: ids.filter((id) => id !== projectId) };
     await api.writeAppConfig(next);
     set({ appConfig: next });
   },

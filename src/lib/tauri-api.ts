@@ -153,7 +153,11 @@ function mockInvoke<T>(cmd: string, _args?: Record<string, unknown>): T {
       ANTHROPIC_DEFAULT_HAIKU_MODEL:  "claude-haiku-4-5",
     } as Record<string, string>,
 
-    read_app_config: { minimize_to_tray: false, hidden_project_ids: [] } as AppConfig,
+    read_app_config: { minimize_to_tray: false, hidden_project_ids: [], hooks_only_configured: false } as AppConfig,
+
+    read_usage_cache: null as string | null,
+    write_usage_cache: undefined,
+    clear_usage_cache: undefined,
 
     list_marketplaces: [
       { id: "claude-plugins-official", source: { source: "github", repo: "anthropics/claude-plugins-official" }, install_location: "", last_updated: new Date().toISOString() },
@@ -301,6 +305,10 @@ export const api = {
     const raw = await invoke<string>("get_codeburn_data");
     return JSON.parse(raw) as CodburnData;
   },
+  // 用量缓存（持久化到 ~/.cc-assistant/usage-cache.json，跨进程保留）
+  readUsageCache: () => invoke<string | null>("read_usage_cache"),
+  writeUsageCache: (content: string) => invoke<void>("write_usage_cache", { content }),
+  clearUsageCache: () => invoke<void>("clear_usage_cache"),
 
   // Prompt
   readGlobalClaudeMd: () => invoke<string>("read_global_claude_md"),

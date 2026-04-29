@@ -19,9 +19,9 @@ export function PreferencesPage() {
     }
   }, [appConfig, draft]);
 
-  async function handleToggle(value: boolean) {
+  async function handleUpdate(patch: Partial<AppConfig>) {
     if (!draft) return;
-    const updated = { ...draft, minimize_to_tray: value };
+    const updated = { ...draft, ...patch };
     setDraft(updated);
     setSaving(true);
     try {
@@ -68,7 +68,30 @@ export function PreferencesPage() {
             </div>
             <Toggle
               checked={draft.minimize_to_tray}
-              onChange={handleToggle}
+              onChange={(v) => handleUpdate({ minimize_to_tray: v })}
+              disabled={saving}
+            />
+          </div>
+        </div>
+
+        {/* Hooks 页面：仅显示已配置 */}
+        <div
+          className="rounded-xl p-5"
+          style={{ background: "var(--surface-card)", border: "1px solid var(--border)" }}
+        >
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <div className="font-semibold text-sm mb-1" style={{ color: "var(--text-primary)" }}>
+                Hooks 页面默认仅显示已配置
+              </div>
+              <div className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+                打开后，Hooks 列表只展示当前已存在规则的事件，方便快速查看现有配置。
+                可在 Hooks 页面顶部随时切换。
+              </div>
+            </div>
+            <Toggle
+              checked={draft.hooks_only_configured}
+              onChange={(v) => handleUpdate({ hooks_only_configured: v })}
               disabled={saving}
             />
           </div>
