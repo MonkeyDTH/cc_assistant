@@ -93,6 +93,8 @@ export function HooksPage() {
   );
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  // 是否仅显示已配置的 hook 事件
+  const [onlyConfigured, setOnlyConfigured] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saved" | "error">("idle");
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -193,6 +195,19 @@ export function HooksPage() {
           </p>
         </div>
 
+        {/* 仅显示已配置开关 */}
+        <label className="flex items-center gap-2 cursor-pointer select-none mr-2">
+          <input
+            type="checkbox"
+            checked={onlyConfigured}
+            onChange={(e) => setOnlyConfigured(e.target.checked)}
+            style={{ accentColor: "var(--accent)", width: "14px", height: "14px" }}
+          />
+          <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
+            仅显示已配置
+          </span>
+        </label>
+
         <SaveStatusBadge status={saveStatus} />
 
         <button
@@ -216,6 +231,11 @@ export function HooksPage() {
           HOOK_GROUPS.map((group) => {
             const isGroupOpen = !!groupExpanded[group.label];
             const totalRules = group.events.reduce((sum, e) => sum + (hooks[e]?.length ?? 0), 0);
+            // 仅显示已配置时，过滤掉无规则的事件；整组都为空则不渲染
+            const visibleEvents = onlyConfigured
+              ? group.events.filter((e) => (hooks[e]?.length ?? 0) > 0)
+              : group.events;
+            if (onlyConfigured && visibleEvents.length === 0) return null;
 
             return (
               <div key={group.label}>
@@ -246,7 +266,7 @@ export function HooksPage() {
                 {/* 分组内的事件列表 */}
                 {isGroupOpen && (
                   <div className="space-y-2 pl-2">
-                    {group.events.map((event) => {
+                    {visibleEvents.map((event) => {
                       const rules = hooks[event] ?? [];
                       const isOpen = !!expanded[event];
                       const hasRules = rules.length > 0;
